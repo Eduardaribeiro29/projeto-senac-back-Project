@@ -1,14 +1,12 @@
-# API REST — Usuários e Tarefas
+# API REST — Usuários e Tarefas (SENAC / UC3)
 
-Projeto didático de uma API REST simples em Node.js + Express, com CRUD de **usuários** e **tarefas**, sem banco de dados (dados em memória).
+Projeto didático em Node.js + Express + SQLite cobrindo o conteúdo da **UC3** (Programador Web — SENAC):
 
-Material de apoio à disciplina — SENAC / UC3.
+- **Bloco A** — SQL e SQLite no Node (`sqlite` async + prepared statements)
+- **Bloco B** — manter estado entre requisições (aqui via **JWT** — alternativa a session, slide 33)
+- **Bloco C** — segurança: bcrypt, helmet, dotenv, validações, princípio do menor privilégio
 
----
-
-## Objetivo
-
-Servir como **referência de implementação** para a atividade descrita no documento `Guia-Construcao-API-REST.docx`. Use este código apenas para **conferir** sua implementação depois de tentar fazer sozinho.
+Material de apoio à atividade descrita em `Guia-Construcao-API-REST.docx`. Use como referência depois de tentar implementar sozinho.
 
 ---
 
@@ -16,7 +14,13 @@ Servir como **referência de implementação** para a atividade descrita no docu
 
 - Node.js 18+
 - Express 4
-- Nodemon (apenas em desenvolvimento)
+- SQLite via `sqlite` + `sqlite3` (driver Promise-based)
+- `bcrypt` — hash de senhas
+- `jsonwebtoken` — autenticação stateless via JWT
+- `helmet` — cabeçalhos HTTP de segurança
+- `dotenv` — segredos fora do código-fonte
+- `cors`
+- `nodemon` (apenas em desenvolvimento)
 - ES Modules (`import` / `export`)
 
 ---
@@ -24,15 +28,19 @@ Servir como **referência de implementação** para a atividade descrita no docu
 ## Estrutura de pastas
 
 ```
-api-rest-senac/
-├── package.json
-├── index.js                 # ponto de entrada do servidor
+projeto-senac-back/
+├── .env.example                 # modelo do .env (versionado)
+├── .env                         # segredos reais (IGNORADO pelo git)
 ├── .gitignore
+├── package.json
+├── index.js                     # ponto de entrada do servidor
 └── src/
     ├── data/
-    │   └── db.js            # arrays em memória + contadores de id
+    │   └── db.js                # conexão SQLite + CREATE TABLE
+    ├── middlewares/
+    │   └── autenticacao.js      # valida o JWT no header Authorization
     ├── controllers/
-    │   ├── usuariosController.js
+    │   ├── usuariosController.js   # CRUD + login + perfil
     │   └── tarefasController.js
     └── routes/
         ├── usuariosRoutes.js
@@ -43,29 +51,49 @@ api-rest-senac/
 
 | Camada | Responsabilidade |
 |---|---|
-| `index.js` | Sobe o Express, registra middlewares e monta as rotas. |
-| `routes/` | Mapeia verbo HTTP + caminho para a função do controller. |
-| `controllers/` | Implementa a lógica do CRUD (validações, manipulação dos arrays, respostas HTTP). |
-| `data/db.js` | Simula o "banco" com arrays em memória e contadores de id. |
+| `index.js` | Sobe o Express, registra middlewares globais (`helmet`, `cors`, `express.json`) e monta as rotas. |
+| `routes/` | Mapeia verbo HTTP + caminho para a função do controller. Aplica o middleware de autenticação onde necessário. |
+| `middlewares/` | Funções que rodam antes do controller. Aqui: verificação do JWT. |
+| `controllers/` | Lógica do CRUD: validações, queries SQL, respostas HTTP. |
+| `data/db.js` | Abre a conexão SQLite e garante o schema (idempotente). |
 
 ---
 
 ## Como rodar
 
-Pré-requisito: Node.js 18 ou superior instalado (`node -v`).
+Pré-requisitos: Node.js 18+ (`node -v`).
 
 ```bash
 # 1) instalar dependências
 npm install
 
-# 2) rodar em modo desenvolvimento (auto-reload com nodemon)
+# 2) preparar variáveis de ambiente
+cp .env.example .env           # Linux/macOS
+# no Windows: copy .env.example .env
+
+# 3) rodar em modo desenvolvimento (auto-reload com nodemon)
 npm run dev
 
 # ou rodar normalmente
 npm start
 ```
 
-O servidor sobe em `http://localhost:3000`.
+Servidor sobe em `http://localhost:3000` (ou a `PORT` definida no `.env`).
+O arquivo do banco é criado em `src/data/database.db` na primeira execução.
+
+---
+
+## Variáveis de ambiente
+
+Arquivo `.env` na raiz do projeto. Use `.env.example` como modelo.
+
+| Variável | Para que serve |
+|---|---|
+| `PORT` | Porta do servidor HTTP. Padrão `3000`. |
+| `JWT_SECRET` | Segredo usado para assinar os tokens JWT. **Troque em produção.** |
+| `JWT_EXPIRES_IN` | Tempo de validade do token. Ex.: `15m`, `1h`, `1d`, `7d`. |
+
+> `.env` está no `.gitignore`. Nunca commite segredos reais.
 
 ---
 
@@ -75,36 +103,44 @@ Base URL: `http://localhost:3000`
 
 ### Usuários — `/usuarios`
 
-| Verbo | Caminho | Descrição |
-|---|---|---|
-| GET | `/usuarios` | Lista todos os usuários |
-| GET | `/usuarios/:id` | Busca usuário por id |
-| POST | `/usuarios` | Cria novo usuário |
-| PUT | `/usuarios/:id` | Atualiza campos do usuário (parcial) |
-| DELETE | `/usuarios/:id` | Remove usuário |
+Tudo de usuário (cadastro, login, perfil, CRUD) está sob o mesmo recurso. As duas primeiras rotas são públicas; o restante exige o header `Authorization: Bearer <token>`.
 
-**Modelo de usuário**
+| Verbo | Caminho | Protegido? | Descrição |
+|---|---|---|---|
+| POST | `/usuarios` | **não** | Cadastra novo usuário (senha vai hash via bcrypt) |
+| POST | `/usuarios/login` | **não** | Recebe `email` + `senha`, devolve um JWT |
+| GET | `/usuarios/perfil` | sim | Dados do usuário do token (rota protegida modelo) |
+| GET | `/usuarios` | sim | Lista todos os usuários (sem o campo senha) |
+| GET | `/usuarios/:id` | sim | Busca usuário por id |
+| PUT | `/usuarios/:id` | sim | Atualiza parcialmente — só o próprio usuário (403 caso contrário) |
+| DELETE | `/usuarios/:id` | sim | Remove — só o próprio usuário |
+
+> **Detalhe importante para os alunos:** em `usuariosRoutes.js`, `/perfil` precisa ser declarada **antes** de `/:id`. O Express resolve as rotas na ordem em que foram registradas — se `/:id` viesse primeiro, ele trataria `perfil` como um valor de `:id`.
+
+**Modelo de usuário** (resposta — `senha` nunca aparece no JSON)
 
 ```json
 {
   "id": 1,
   "nome": "Maria",
   "email": "maria@example.com",
-  "telefone": "27999999999",
-  "senha": "123456"
+  "telefone": "27999999999"
 }
 ```
 
-**Campos obrigatórios no POST:** `nome`, `email`, `telefone`, `senha`.
+Campos obrigatórios no POST: `nome`, `email`, `telefone`, `senha` (mínimo 6 caracteres).
 
-### Tarefas — `/tarefas`
+### Tarefas — `/tarefas` (todas protegidas)
+
+Em todas as rotas, o `usuarioId` é obtido do **token** — não vem do body. Cada usuário só enxerga e altera as próprias tarefas.
 
 | Verbo | Caminho | Descrição |
 |---|---|---|
-| GET | `/tarefas` | Lista todas as tarefas |
-| GET | `/tarefas/:id` | Busca tarefa por id |
-| POST | `/tarefas` | Cria nova tarefa |
-| PUT | `/tarefas/:id` | Atualiza tarefa (parcial) |
+| GET | `/tarefas` | Lista tarefas do usuário logado |
+| GET | `/tarefas/:id` | Busca tarefa por id (apenas se for do usuário logado) |
+| GET | `/tarefas/usuario/:usuarioId` | Lista as tarefas — apenas o próprio (403 caso contrário) |
+| POST | `/tarefas` | Cria tarefa. Body: `{ "titulo": "..." }` |
+| PUT | `/tarefas/:id` | Atualiza parcialmente. Body aceita `titulo` e/ou `concluida` (boolean) |
 | DELETE | `/tarefas/:id` | Remove tarefa |
 
 **Modelo de tarefa**
@@ -118,52 +154,62 @@ Base URL: `http://localhost:3000`
 }
 ```
 
-**Campos obrigatórios no POST:** `titulo`, `usuarioId` (precisa existir em `/usuarios`).
-
 ---
 
-## Exemplos de requisição (curl)
+## Fluxo de autenticação (passo a passo)
 
-### Listar usuários
+1. **Cadastrar usuário** (público):
 
-```bash
-curl http://localhost:3000/usuarios
-```
+   ```bash
+   curl -X POST http://localhost:3000/usuarios \
+     -H "Content-Type: application/json" \
+     -d '{
+       "nome": "Maria",
+       "email": "maria@example.com",
+       "telefone": "27988887777",
+       "senha": "123456"
+     }'
+   ```
 
-### Criar usuário
+2. **Fazer login** — a resposta traz `token`:
 
-```bash
-curl -X POST http://localhost:3000/usuarios \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nome": "Maria",
-    "email": "maria@example.com",
-    "telefone": "27988887777",
-    "senha": "123456"
-  }'
-```
+   ```bash
+   curl -X POST http://localhost:3000/usuarios/login \
+     -H "Content-Type: application/json" \
+     -d '{ "email": "maria@example.com", "senha": "123456" }'
+   ```
 
-### Atualizar parcialmente
+   ```json
+   {
+     "token": "eyJhbGciOiJIUzI1NiIs...",
+     "usuario": { "id": 1, "nome": "Maria", "email": "maria@example.com" }
+   }
+   ```
 
-```bash
-curl -X PUT http://localhost:3000/usuarios/1 \
-  -H "Content-Type: application/json" \
-  -d '{ "telefone": "27911112222" }'
-```
+3. **Chamar rotas protegidas** enviando o token no header `Authorization`:
 
-### Remover usuário
+   ```bash
+   curl http://localhost:3000/usuarios/perfil \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+   ```
 
-```bash
-curl -X DELETE http://localhost:3000/usuarios/1
-```
+4. **Criar tarefa** (o `usuarioId` vem do token, não do body):
 
-### Criar tarefa vinculada a um usuário
+   ```bash
+   curl -X POST http://localhost:3000/tarefas \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+     -d '{ "titulo": "Estudar Node" }'
+   ```
 
-```bash
-curl -X POST http://localhost:3000/tarefas \
-  -H "Content-Type: application/json" \
-  -d '{ "titulo": "Estudar Node", "usuarioId": 1 }'
-```
+5. **Marcar como concluída**:
+
+   ```bash
+   curl -X PUT http://localhost:3000/tarefas/1 \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
+     -d '{ "concluida": true }'
+   ```
 
 ---
 
@@ -173,39 +219,56 @@ curl -X POST http://localhost:3000/tarefas \
 |---|---|
 | 200 | OK em GET, PUT e DELETE |
 | 201 | Recurso criado com sucesso (POST) |
-| 400 | Body inválido / campos obrigatórios ausentes / referência inexistente |
+| 400 | Body inválido / campos obrigatórios ausentes |
+| 401 | Não autenticado (sem token ou token inválido/expirado) |
+| 403 | Autenticado mas sem permissão (ex.: tentar editar outro usuário) |
 | 404 | Recurso não encontrado por id |
+| 409 | Conflito (email já cadastrado) |
 
 ---
 
-## Conceitos de JavaScript exercitados
+## Conceitos da UC3 exercitados em cada arquivo
 
-- **Arrays:** `find`, `findIndex`, `some`, `push`, `splice`
-- **Funções:** declaradas com `export function` e usadas em rotas
-- **Objetos:** spread (`...`) com short-circuit para atualização parcial
-- **Módulos:** `import` / `export` com ESM (`"type": "module"` no `package.json`)
+| Arquivo | Conteúdo da UC3 |
+|---|---|
+| `src/data/db.js` | Bloco A — CREATE TABLE, tipos, NOT NULL, UNIQUE, AUTOINCREMENT, FOREIGN KEY, PRAGMA foreign_keys |
+| `src/controllers/usuariosController.js` | Bloco A — INSERT/SELECT/UPDATE/DELETE com `?` · Bloco C — bcrypt.hash + bcrypt.compare, não devolver senha · Bloco B alternativo — JWT em vez de session (slide 33) |
+| `src/controllers/tarefasController.js` | Bloco A — CRUD com WHERE · Bloco C — princípio do menor privilégio (filtra por `usuarioId` do token) |
+| `src/middlewares/autenticacao.js` | Bloco B/C — autenticação de cada requisição via header `Authorization` |
+| `index.js` | Bloco C — helmet (cabeçalhos), dotenv (segredos fora do código), CORS |
+
+---
+
+## Checklist de segurança aplicado (UC3 — slide 45)
+
+- [x] Toda query usa parâmetro preparado (`?`) — nunca concatenação com `${}`
+- [x] Senhas guardadas com `bcrypt.hash` (10 rounds)
+- [x] `JWT_SECRET` no `.env`, `.env` no `.gitignore`
+- [x] `app.use(helmet())` ativo
+- [x] Mensagens de erro genéricas no login (não diz se o e-mail existe)
+- [x] Campo `senha` nunca aparece nas respostas
+- [x] `ON DELETE CASCADE` mantém o banco consistente
 
 ---
 
 ## Limitações conhecidas (são propositais — didático)
 
-- Dados em memória: ao reiniciar o servidor, tudo se perde.
-- Senha em texto puro, sem hash. **Não use isso em produção.**
-- Sem autenticação. Qualquer cliente pode chamar qualquer endpoint.
-- Sem unicidade de email — é possível cadastrar dois usuários com o mesmo email.
-- Sem tratamento global de erros — cada controller lida com os seus.
+- Sem refresh token / blacklist. Quando o token vaza, vale até expirar.
+- Sem rate limiting (slide 40 cita — pode entrar como desafio).
+- Sem logger estruturado. Em produção: pino/winston.
+- Sem testes automatizados.
 
 ---
 
-## Próximos passos sugeridos (desafios)
+## Desafios sugeridos para os alunos
 
-1. Impedir cadastro com email duplicado (retornar 409).
-2. Criar `GET /usuarios/:id/tarefas` retornando só as tarefas daquele usuário.
-3. Omitir o campo `senha` nas respostas.
-4. Persistir os dados em um arquivo `data.json`.
-5. Validar formato do email com regex.
-6. Trocar o array por um banco real (SQLite ou MongoDB).
-7. Adicionar autenticação com JWT e proteger as rotas.
+1. Validar formato do email com regex no cadastro.
+2. Adicionar paginação na listagem de tarefas (`LIMIT` / `OFFSET`, slide 12).
+3. Criar `GET /tarefas/stats` que devolve `{ total, concluidas, pendentes }` usando `COUNT` + `WHERE` (slide 13).
+4. Implementar busca por título com `LIKE '%termo%'` (slide 12).
+5. Implementar rate limiting com `express-rate-limit` na rota `/usuarios/login`.
+6. Trocar JWT por `express-session` (slides 29–32) e comparar as duas abordagens.
+7. Adicionar uma rota `GET /usuarios/:id/tarefas` usando `INNER JOIN` (slide 17) que devolve nome do usuário junto.
 
 ---
 
@@ -216,8 +279,9 @@ curl -X POST http://localhost:3000/tarefas \
 | `SyntaxError: Cannot use import statement outside a module` | Faltou `"type": "module"` no `package.json`. |
 | `req.body` chega como `undefined` | Faltou `app.use(express.json())` no `index.js`. |
 | `Cannot find module './foo'` | Em ESM a extensão `.js` no import é obrigatória. |
-| Servidor não atualiza ao salvar | Está rodando `node` em vez de `nodemon` — use `npm run dev`. |
-| Comparação por id sempre falsa | Esqueceu de converter `req.params.id` com `Number()`. |
+| `401 Token não enviado` | Esqueceu o header `Authorization: Bearer <token>`. |
+| `401 Token inválido ou expirado` | Token vencido (gere novo via `/usuarios/login`) ou `JWT_SECRET` diferente entre quem assinou e quem verifica. |
+| `process.env.JWT_SECRET` vazio | Faltou `.env` na raiz ou `import 'dotenv/config'` antes do uso. |
 
 ---
 
