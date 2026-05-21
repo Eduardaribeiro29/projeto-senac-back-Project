@@ -1,14 +1,14 @@
 INSERT INTO usuarios (id, nome, email, telefone, senha) VALUES
-(1, 'Ana Costa', 'ana.costa@gmail.com', '27999881122', '1234'),
-(2, 'João Silva', 'joao.silva@outlook.com', '11988882233', '4321'),
-(3, 'Maria Silva', 'maria.silva@empresa.com', '21977773344', 'abcd'),
-(4, 'Pedro Santos', 'pedro.santos@gmail.com', '27966664455', 'pass'),
-(5, 'Carlos Souza', 'carlos.souza@yahoo.com', '31955555566', 'admin'),
-(6, 'Ana Beatriz', 'ana.bia@outlook.com', '27944446677', '9876'),
-(7, 'Ricardo Rocha', 'ricardo.rocha@empresa.com', '11933337788', 'rocha1'),
-(8, 'Beatriz Alves', 'beatriz.a@gmail.com', '21922228899', 'bia123'),
-(9, 'Fernando Lima', 'fernando.lima@gmail.com', '31911119900', 'nando'),
-(10, 'Juliana Mendes', 'ju.mendes@outlook.com', '27900000011', 'ju2026');
+('Ana Costa', 'ana.costa@gmail.com', '27999881122', '1234'),
+('João Silva', 'joao.silva@outlook.com', '11988882233', '4321'),
+('Maria Silva', 'maria.silva@empresa.com', '21977773344', 'abcd'),
+('Pedro Santos', 'pedro.santos@gmail.com', '27966664455', 'pass'),
+('Carlos Souza', 'carlos.souza@yahoo.com', '31955555566', 'admin'),
+('Ana Beatriz', 'ana.bia@outlook.com', '27944446677', '9876'),
+('Ricardo Rocha', 'ricardo.rocha@empresa.com', '11933337788', 'rocha1'),
+('Beatriz Alves', 'beatriz.a@gmail.com', '21922228899', 'bia123'),
+('Fernando Lima', 'fernando.lima@gmail.com', '31911119900', 'nando'),
+('Juliana Mendes', 'ju.mendes@outlook.com', '27900000011', 'ju2026');
 
 INSERT INTO tarefas (titulo, concluida, usuarioId) VALUES
 ('Estudar Node.js e Express', 1, 1),

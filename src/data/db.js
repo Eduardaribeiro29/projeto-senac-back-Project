@@ -1,54 +1,89 @@
-// db.js — camada de acesso ao banco SQLite
+// db.js — camada de acesso ao banco PostgreSQL (Supabase)
 //
-// Por que SQLite?
-// É um banco em arquivo, sem servidor separado. Perfeito para didática —
-// o aluno não precisa instalar nada além do `sqlite3` via npm.
-//
-// O driver `sqlite` (que envolve o `sqlite3`) é a versão com Promises:
-// em vez de callback, usamos async/await — combina com o restante do projeto.
-//
-// Conceitos da UC3 que aparecem aqui (Bloco A — Aulas 5, 10, 12):
-// - CREATE TABLE com tipos e restrições (NOT NULL, UNIQUE, DEFAULT)
-// - PRIMARY KEY com AUTOINCREMENT
-// - FOREIGN KEY ligando tarefas → usuários
-// - PRAGMA foreign_keys = ON; (SQLite só respeita FK quando isso é ativado)
-// - ON DELETE CASCADE: ao apagar um usuário, apaga as tarefas dele.
+// Mantemos os métodos all/get/run para não quebrar os controllers atuais.
+// Internamente convertemos placeholders de SQLite (?) para PostgreSQL ($1, $2...).
 
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import { Pool } from 'pg';
+import 'dotenv/config';
 
-// guardamos a conexão em uma variável de módulo. Padrão "singleton":
-// abre só uma vez e reutiliza em todos os controllers.
 let dbConnection = null;
+
+function toPgPlaceholders(sql) {
+  let index = 0;
+  return sql.replace(/\?/g, () => {
+    index += 1;
+    return `$${index}`;
+  });
+}
+
+function createAdapter(pool) {
+  return {
+    async all(sql, params = []) {
+      const query = toPgPlaceholders(sql);
+      const result = await pool.query(query, params);
+      return result.rows;
+    },
+
+    async get(sql, params = []) {
+      const query = toPgPlaceholders(sql);
+      const result = await pool.query(query, params);
+      return result.rows[0] ?? undefined;
+    },
+
+    async run(sql, params = []) {
+      let query = toPgPlaceholders(sql);
+      const isInsert = /^\s*insert\s+/i.test(sql);
+      if (isInsert && !/\breturning\b/i.test(sql)) {
+        query += ' RETURNING id';
+      }
+
+      const result = await pool.query(query, params);
+      return {
+        lastID: result.rows?.[0]?.id ?? null,
+        changes: result.rowCount ?? 0
+      };
+    }
+  };
+}
 
 export async function getDatabase() {
   if (!dbConnection) {
-    dbConnection = await open({
-      filename: './src/data/database.db',
-      driver: sqlite3.Database
+    const connectionString = process.env.CONN_STRINGS;
+
+    if (!connectionString) {
+      throw new Error('CONN_STRINGS não configurada no .env');
+    }
+
+    const pool = new Pool({
+      connectionString,
+      ssl: { rejectUnauthorized: false }
     });
 
-    // ativa restrições de Chave Estrangeira por conexão (SQLite vem desligado)
-    await dbConnection.run('PRAGMA foreign_keys = ON;');
+    // valida conexão e cria schema inicial (idempotente)
+    await pool.query('SELECT 1');
 
-    // cria as tabelas caso ainda não existam (idempotente)
-    await dbConnection.exec(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    await pool.query(`
+     CREATE TABLE IF NOT EXISTS usuarios (
+        id        INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
         nome      TEXT NOT NULL,
         email     TEXT NOT NULL UNIQUE,
         telefone  TEXT,
         senha     TEXT NOT NULL
       );
+    `);
 
-      CREATE TABLE IF NOT EXISTS tarefas (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    await pool.query(`
+     CREATE TABLE IF NOT EXISTS tarefas (
+        id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
         titulo     TEXT NOT NULL,
         concluida  INTEGER NOT NULL DEFAULT 0,
         usuarioId  INTEGER NOT NULL,
         FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
       );
     `);
+
+    dbConnection = createAdapter(pool);
   }
+
   return dbConnection;
 }

@@ -13,6 +13,10 @@ import { getDatabase } from '../data/db.js';
 
 const SALT_ROUNDS = 10;
 
+function ehErroEmailDuplicado(erro) {
+  return erro?.code === '23505' || erro?.message?.includes('UNIQUE constraint failed');
+}
+
 // GET /usuarios — lista todos (sem o campo senha)
 export async function listar(req, res) {
   try {
@@ -83,7 +87,7 @@ export async function criar(req, res) {
   } catch (erro) {
     // a coluna email tem UNIQUE no CREATE TABLE — tratamos o erro
     // de violação dessa restrição como 409 Conflict.
-    if (erro.message.includes('UNIQUE constraint failed')) {
+    if (ehErroEmailDuplicado(erro)) {
       return res.status(409).json({ mensagem: 'Este e-mail já está cadastrado.' });
     }
     console.error('[usuarios.criar]', erro);
@@ -139,7 +143,7 @@ export async function atualizar(req, res) {
       telefone: novoTelefone
     });
   } catch (erro) {
-    if (erro.message.includes('UNIQUE constraint failed')) {
+    if (ehErroEmailDuplicado(erro)) {
       return res.status(409).json({ mensagem: 'Este e-mail já está cadastrado.' });
     }
     console.error('[usuarios.atualizar]', erro);

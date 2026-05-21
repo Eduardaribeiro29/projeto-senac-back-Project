@@ -1,9 +1,9 @@
 
 # API REST — Usuários e Tarefas (SENAC / UC3)
 
-Projeto didático em Node.js + Express + SQLite cobrindo o conteúdo da **UC3** (Programador Web — SENAC):
+Projeto didático em Node.js + Express + PostgreSQL (Supabase) cobrindo o conteúdo da **UC3** (Programador Web — SENAC):
 
-- **Bloco A** — SQL e SQLite no Node (`sqlite` async + prepared statements)
+- **Bloco A** — SQL no Node com PostgreSQL (prepared statements)
 - **Bloco B** — manter estado entre requisições (aqui via **JWT** — alternativa a session, slide 33)
 - **Bloco C** — segurança: bcrypt, helmet, dotenv, validações, princípio do menor privilégio
 
@@ -15,7 +15,7 @@ Material de apoio à atividade descrita em `Guia-Construcao-API-REST.docx`. Use 
 
 - Node.js 18+
 - Express 4
-- SQLite via `sqlite` + `sqlite3` (driver Promise-based)
+- PostgreSQL via `pg` (compatível com Supabase)
 - `bcrypt` — hash de senhas
 - `jsonwebtoken` — autenticação stateless via JWT
 - `helmet` — cabeçalhos HTTP de segurança
@@ -37,7 +37,7 @@ projeto-senac-back/
 ├── index.js                     # ponto de entrada do servidor
 └── src/
     ├── data/
-    │   └── db.js                # conexão SQLite + CREATE TABLE
+    │   └── db.js                # conexão PostgreSQL + CREATE TABLE
     ├── middlewares/
     │   └── autenticacao.js      # valida o JWT no header Authorization
     ├── controllers/
@@ -56,7 +56,7 @@ projeto-senac-back/
 | `routes/` | Mapeia verbo HTTP + caminho para a função do controller. Aplica o middleware de autenticação onde necessário. |
 | `middlewares/` | Funções que rodam antes do controller. Aqui: verificação do JWT. |
 | `controllers/` | Lógica do CRUD: validações, queries SQL, respostas HTTP. |
-| `data/db.js` | Abre a conexão SQLite e garante o schema (idempotente). |
+| `data/db.js` | Abre a conexão PostgreSQL e garante o schema (idempotente). |
 
 ---
 
@@ -80,7 +80,6 @@ npm start
 ```
 
 Servidor sobe em `http://localhost:3000` (ou a `PORT` definida no `.env`).
-O arquivo do banco é criado em `src/data/database.db` na primeira execução.
 
 ---
 
@@ -93,6 +92,7 @@ Arquivo `.env` na raiz do projeto. Use `.env.example` como modelo.
 | `PORT` | Porta do servidor HTTP. Padrão `3000`. |
 | `JWT_SECRET` | Segredo usado para assinar os tokens JWT. **Troque em produção.** |
 | `JWT_EXPIRES_IN` | Tempo de validade do token. Ex.: `15m`, `1h`, `1d`, `7d`. |
+| `DATABASE_URL` | String de conexão PostgreSQL do Supabase. |
 
 > `.env` está no `.gitignore`. Nunca commite segredos reais.
 
