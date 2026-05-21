@@ -1,3 +1,4 @@
+
 # API REST — Usuários e Tarefas (SENAC / UC3)
 
 Projeto didático em Node.js + Express + SQLite cobrindo o conteúdo da **UC3** (Programador Web — SENAC):

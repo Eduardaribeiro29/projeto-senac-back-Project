@@ -13,7 +13,7 @@ import usuariosRoutes from './src/routes/usuariosRoutes.js';
 import tarefasRoutes from './src/routes/tarefasRoutes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Middlewares globais
@@ -26,7 +26,7 @@ app.use(helmet());
 // CORS: libera chamadas vindas de outros domínios (ex.: front no Live Server
 // em http://127.0.0.1:5500). Em produção, restrinja a origin de verdade.
 app.use(cors({
-  origin: ['http://127.0.0.1:5500', 'http://localhost:5500'],
+  origin: ['http://127.0.0.1:5500', 'http://localhost:5500','http://localhost:8080', 'http://127.0.0.1:8080'],
   credentials: true
 }));
 
