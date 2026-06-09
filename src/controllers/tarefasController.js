@@ -7,7 +7,7 @@
 
 import { getDatabase } from '../data/db.js';
 
-const STATUS_VALIDOS = new Set(['Novo', 'Em Andamento', 'Concluida']);
+const STATUS_VALIDOS = new Set(['Novo', 'Em Andamento', 'Concluido']);
 
 function normalizarTextoBase(valor) {
   return String(valor)
@@ -23,9 +23,16 @@ function normalizarStatus(status, fallback = 'Novo') {
 
   if (valor === 'novo') return 'Novo';
   if (valor === 'em andamento' || valor === 'andamento') return 'Em Andamento';
-  if (valor === 'concluida' || valor === 'concluido') return 'Concluida';
+  if (valor === 'concluida' || valor === 'concluido') return 'Concluido';
 
   return fallback;
+}
+
+function normalizarTarefaSaida(tarefa) {
+  return {
+    ...tarefa,
+    status: normalizarStatus(tarefa.status, 'Novo')
+  };
 }
 
 // GET /tarefas — só as do usuário logado
@@ -36,7 +43,7 @@ export async function listar(req, res) {
       'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [req.usuarioId]
     );
-    res.json(tarefas);
+    res.json(tarefas.map(normalizarTarefaSaida));
   } catch (erro) {
     console.error('[tarefas.listar]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefas.' });
@@ -56,7 +63,7 @@ export async function buscarPorId(req, res) {
     if (!tarefa) {
       return res.status(404).json({ mensagem: 'Tarefa não encontrada.' });
     }
-    res.json(tarefa);
+    res.json(normalizarTarefaSaida(tarefa));
   } catch (erro) {
     console.error('[tarefas.buscarPorId]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefa.' });
@@ -82,7 +89,7 @@ export async function listarPorUsuario(req, res) {
       'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [usuarioIdSolicitado]
     );
-    res.json(tarefas);
+    res.json(tarefas.map(normalizarTarefaSaida));
   } catch (erro) {
     console.error('[tarefas.listarPorUsuario]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefas do usuário.' });
@@ -140,7 +147,7 @@ export async function atualizar(req, res) {
     const novaDescricao = descricao ?? atual.descricao;
     let novoStatus = atual.status;
     if (typeof concluida === 'boolean') {
-      novoStatus = concluida ? 'Concluida' : 'Novo';
+      novoStatus = concluida ? 'Concluido' : 'Novo';
     }
     if (typeof status === 'string') {
       novoStatus = normalizarStatus(status, atual.status);
