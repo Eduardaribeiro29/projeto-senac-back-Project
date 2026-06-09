@@ -10,6 +10,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { getDatabase } from '../data/db.js';
+import { processarUploadImagem } from '../middlewares/uploadImagem.js';
 
 const SALT_ROUNDS = 10;
 
@@ -22,7 +23,7 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const usuarios = await db.all(
-      'SELECT id, nome, email, telefone FROM usuarios ORDER BY id'
+      'SELECT id, nome, email, telefone, foto FROM usuarios ORDER BY id'
     );
     res.json(usuarios);
   } catch (erro) {
@@ -37,7 +38,7 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, telefone FROM usuarios WHERE id = ?',
+      'SELECT id, nome, email, telefone, foto FROM usuarios WHERE id = ?',
       [id]
     );
 
@@ -82,7 +83,8 @@ export async function criar(req, res) {
       id: resultado.lastID,
       nome,
       email,
-      telefone
+      telefone,
+      foto: null
     });
   } catch (erro) {
     // a coluna email tem UNIQUE no CREATE TABLE — tratamos o erro
@@ -110,6 +112,14 @@ export async function atualizar(req, res) {
   const { nome, email, telefone, senha } = req.body;
 
   try {
+    let pastaUpload = 'perfil';
+
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+      const upload = await processarUploadImagem(req, res, { pasta: 'perfil', campo: 'foto' });
+      pastaUpload = upload.pasta;
+    }
+
     const db = await getDatabase();
     const atual = await db.get('SELECT * FROM usuarios WHERE id = ?', [idAlvo]);
 
@@ -120,6 +130,9 @@ export async function atualizar(req, res) {
     const novoNome = nome ?? atual.nome;
     const novoEmail = email ?? atual.email;
     const novoTelefone = telefone ?? atual.telefone;
+    const novaFoto = req.file
+      ? `${req.protocol}://${req.get('host')}/uploads/${pastaUpload}/${idAlvo}/${req.file.filename}`
+      : (req.body.foto ?? atual.foto);
     let novaSenha = atual.senha;
 
     if (senha) {
@@ -132,17 +145,22 @@ export async function atualizar(req, res) {
     }
 
     await db.run(
-      'UPDATE usuarios SET nome = ?, email = ?, telefone = ?, senha = ? WHERE id = ?',
-      [novoNome, novoEmail, novoTelefone, novaSenha, idAlvo]
+      'UPDATE usuarios SET nome = ?, email = ?, telefone = ?, senha = ?, foto = ? WHERE id = ?',
+      [novoNome, novoEmail, novoTelefone, novaSenha, novaFoto, idAlvo]
     );
 
     res.json({
       id: idAlvo,
       nome: novoNome,
       email: novoEmail,
-      telefone: novoTelefone
+      telefone: novoTelefone,
+      foto: novaFoto
     });
   } catch (erro) {
+    if (erro?.message === 'A imagem deve ter no máximo 5MB.' || erro?.message === 'Apenas arquivos de imagem são permitidos.') {
+      return res.status(400).json({ mensagem: erro.message });
+    }
+
     if (ehErroEmailDuplicado(erro)) {
       return res.status(409).json({ mensagem: 'Este e-mail já está cadastrado.' });
     }
@@ -201,7 +219,7 @@ export async function login(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, senha FROM usuarios WHERE email = ?',
+      'SELECT id, nome, email, senha, foto FROM usuarios WHERE email = ?',
       [email]
     );
 
@@ -226,7 +244,7 @@ export async function login(req, res) {
 
     res.json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email }
+      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, foto: usuario.foto ?? null }
     });
   } catch (erro) {
     console.error('[usuarios.login]', erro);
@@ -240,7 +258,7 @@ export async function perfil(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, telefone FROM usuarios WHERE id = ?',
+      'SELECT id, nome, email, telefone, foto FROM usuarios WHERE id = ?',
       [req.usuarioId]
     );
 
@@ -253,3 +271,4 @@ export async function perfil(req, res) {
     res.status(500).json({ mensagem: 'Erro ao buscar perfil.' });
   }
 }
+

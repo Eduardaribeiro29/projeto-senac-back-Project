@@ -19,7 +19,7 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const tarefas = await db.all(
-      'SELECT id, titulo, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [req.usuarioId]
     );
     res.json(tarefas.map(normalizarTarefa));
@@ -35,7 +35,7 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const tarefa = await db.get(
-      'SELECT id, titulo, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
@@ -65,7 +65,7 @@ export async function listarPorUsuario(req, res) {
   try {
     const db = await getDatabase();
     const tarefas = await db.all(
-      'SELECT id, titulo, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [usuarioIdSolicitado]
     );
     res.json(tarefas.map(normalizarTarefa));
@@ -77,7 +77,7 @@ export async function listarPorUsuario(req, res) {
 
 // POST /tarefas — body { titulo }. usuarioId vem do token.
 export async function criar(req, res) {
-  const { titulo } = req.body;
+  const { titulo, descricao } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
@@ -86,13 +86,14 @@ export async function criar(req, res) {
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO tarefas (titulo, usuarioId, concluida) VALUES (?, ?, 0)',
-      [titulo.trim(), req.usuarioId]
+      'INSERT INTO tarefas (titulo, descricao, usuarioId, concluida) VALUES (?, ?, ?, 0)',
+      [titulo.trim(), descricao?.trim() || null, req.usuarioId]
     );
 
     res.status(201).json({
       id: resultado.lastID,
       titulo: titulo.trim(),
+      descricao: descricao?.trim() || null,
       concluida: false,
       usuarioId: req.usuarioId
     });
@@ -105,12 +106,12 @@ export async function criar(req, res) {
 // PUT /tarefas/:id — atualização parcial. Só permite mexer na própria tarefa.
 export async function atualizar(req, res) {
   const { id } = req.params;
-  const { titulo, concluida } = req.body;
+  const { titulo, descricao, concluida } = req.body;
 
   try {
     const db = await getDatabase();
     const atual = await db.get(
-      'SELECT id, titulo, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
@@ -120,6 +121,7 @@ export async function atualizar(req, res) {
 
     // operador ?? mantém o valor atual quando o campo não vem no body
     const novoTitulo = titulo ?? atual.titulo;
+    const novaDescricao = descricao ?? atual.descricao;
     // concluida: aceita boolean e converte para 0/1
     let novaConcluida = atual.concluida;
     if (typeof concluida === 'boolean') {
@@ -127,13 +129,14 @@ export async function atualizar(req, res) {
     }
 
     await db.run(
-      'UPDATE tarefas SET titulo = ?, concluida = ? WHERE id = ?',
-      [novoTitulo, novaConcluida, id]
+      'UPDATE tarefas SET titulo = ?, descricao = ?, concluida = ? WHERE id = ?',
+      [novoTitulo, novaDescricao, novaConcluida, id]
     );
 
     res.json({
       id: Number(id),
       titulo: novoTitulo,
+      descricao: novaDescricao,
       concluida: novaConcluida === 1,
       usuarioId: req.usuarioId
     });

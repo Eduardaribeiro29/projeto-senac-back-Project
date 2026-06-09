@@ -68,7 +68,8 @@ export async function getDatabase() {
         nome      TEXT NOT NULL,
         email     TEXT NOT NULL UNIQUE,
         telefone  TEXT,
-        senha     TEXT NOT NULL
+        senha     TEXT NOT NULL,
+        foto      TEXT
       );
     `);
 
@@ -76,11 +77,16 @@ export async function getDatabase() {
      CREATE TABLE IF NOT EXISTS tarefas (
         id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
         titulo     TEXT NOT NULL,
+        descricao  TEXT,
         concluida  INTEGER NOT NULL DEFAULT 0,
         usuarioId  INTEGER NOT NULL,
         FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
       );
     `);
+
+    // Migração para bancos já existentes
+    await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto TEXT;');
+    await pool.query('ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS descricao TEXT;');
 
     dbConnection = createAdapter(pool);
   }
