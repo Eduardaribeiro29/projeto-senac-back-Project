@@ -1,9 +1,33 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import multer from 'multer';
 
-const uploadRootDir = path.resolve('uploads');
-fs.mkdirSync(uploadRootDir, { recursive: true });
+let uploadRootDir = null;
+
+function resolverPastaUploads() {
+  if (uploadRootDir) {
+    return uploadRootDir;
+  }
+
+  const candidatos = [
+    process.env.UPLOAD_DIR,
+    path.resolve('uploads'),
+    path.join(os.tmpdir(), 'uploads')
+  ].filter(Boolean);
+
+  for (const candidato of candidatos) {
+    try {
+      fs.mkdirSync(candidato, { recursive: true });
+      uploadRootDir = candidato;
+      return uploadRootDir;
+    } catch {
+      // Tenta o proximo caminho disponivel.
+    }
+  }
+
+  throw new Error('Nao foi possivel inicializar a pasta de uploads. Defina UPLOAD_DIR no ambiente.');
+}
 
 function pad2(value) {
   return String(value).padStart(2, '0');
@@ -38,6 +62,7 @@ function sanitizarPasta(valor, padrao = 'perfil') {
 
 function criarUploaderImagem(pasta = 'perfil') {
   const pastaDestino = sanitizarPasta(pasta);
+  const rootDir = resolverPastaUploads();
 
   const storage = multer.diskStorage({
     destination: (req, _file, cb) => {
@@ -46,7 +71,7 @@ function criarUploaderImagem(pasta = 'perfil') {
         return cb(new Error('Não foi possível identificar o usuário para o upload.'));
       }
 
-      const userDir = path.join(uploadRootDir, pastaDestino, userId);
+      const userDir = path.join(rootDir, pastaDestino, userId);
       fs.mkdirSync(userDir, { recursive: true });
       cb(null, userDir);
     },
