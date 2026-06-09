@@ -11,23 +11,23 @@ INSERT INTO usuarios (nome, email, telefone, senha, foto) VALUES
 ('Juliana Mendes', 'ju.mendes@outlook.com', '27900000011', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL);
 
 
-INSERT INTO tarefas (titulo, descricao, concluida, usuarioId) VALUES
-('Estudar Node.js e Express', 'Finalizar o modulo de rotas e controllers.', 1, 1),
-('Estudar comandos SQL básicos', 'Praticar SELECT, JOIN e filtros no PostgreSQL.', 0, 1),
-('Configurar ambiente na Cloud', 'Ajustar variaveis de ambiente no deploy.', 0, 1),
-('Revisar código JavaScript do Frontend', 'Validar consumo da API e tratamento de erros.', 1, 2),
-('Desenvolver página HTML sem CSS', 'Entregar estrutura semantica do layout.', 0, 2),
-('Enviar relatório mensal de métricas', 'Consolidar dados de acesso e performance.', 1, 3),
-('Reunião de alinhamento com diretoria', 'Apresentar progresso da sprint atual.', 1, 3),
-('Responder e-mails pendentes de clientes', 'Priorizar demandas com prazo vencendo.', 0, 3),
-('Atualizar documentação técnica da API', 'Incluir endpoints de upload e novos campos.', 0, 4),
-('Corrigir bug no formulário de cadastro', 'Ajustar validacao de email duplicado.', 1, 5),
-('Otimizar consultas e indexação do banco', 'Criar indice para colunas mais consultadas.', 0, 5),
-('Estudar React, Vite e TypeScript', 'Revisar hooks e gerenciamento de estado.', 0, 6),
-('Comprar insumos para o escritório', 'Listar materiais e solicitar aprovacao.', 1, 7),
-('Fazer backup de segurança do banco', 'Executar rotina de backup noturno.', 1, 7),
-('Planejar sprint do próximo produto', 'Definir backlog e prioridades com o time.', 0, 7),
-('Testar usabilidade da nova tela', 'Coletar feedback de usuarios internos.', 0, 8),
-('Ajustar responsividade do CSS', 'Corrigir quebrar de layout em telas pequenas.', 1, 8),
-('Criar testes unitários para controllers', 'Cobrir cenarios de erro e sucesso.', 0, 9),
-('Revisar permissões de segurança', 'Verificar regras de acesso por usuario.', 0, 9);
+INSERT INTO tarefas (titulo, descricao, status, usuarioId) VALUES
+('Estudar Node.js e Express', 'Finalizar o modulo de rotas e controllers.', 'Concluida', 1),
+('Estudar comandos SQL básicos', 'Praticar SELECT, JOIN e filtros no PostgreSQL.', 'Em Andamento', 1),
+('Configurar ambiente na Cloud', 'Ajustar variaveis de ambiente no deploy.', 'Novo', 1),
+('Revisar código JavaScript do Frontend', 'Validar consumo da API e tratamento de erros.', 'Concluida', 2),
+('Desenvolver página HTML sem CSS', 'Entregar estrutura semantica do layout.', 'Novo', 2),
+('Enviar relatório mensal de métricas', 'Consolidar dados de acesso e performance.', 'Concluida', 3),
+('Reunião de alinhamento com diretoria', 'Apresentar progresso da sprint atual.', 'Concluida', 3),
+('Responder e-mails pendentes de clientes', 'Priorizar demandas com prazo vencendo.', 'Em Andamento', 3),
+('Atualizar documentação técnica da API', 'Incluir endpoints de upload e novos campos.', 'Em Andamento', 4),
+('Corrigir bug no formulário de cadastro', 'Ajustar validacao de email duplicado.', 'Concluida', 5),
+('Otimizar consultas e indexação do banco', 'Criar indice para colunas mais consultadas.', 'Novo', 5),
+('Estudar React, Vite e TypeScript', 'Revisar hooks e gerenciamento de estado.', 'Em Andamento', 6),
+('Comprar insumos para o escritório', 'Listar materiais e solicitar aprovacao.', 'Concluida', 7),
+('Fazer backup de segurança do banco', 'Executar rotina de backup noturno.', 'Concluida', 7),
+('Planejar sprint do próximo produto', 'Definir backlog e prioridades com o time.', 'Novo', 7),
+('Testar usabilidade da nova tela', 'Coletar feedback de usuarios internos.', 'Em Andamento', 8),
+('Ajustar responsividade do CSS', 'Corrigir quebrar de layout em telas pequenas.', 'Concluida', 8),
+('Criar testes unitários para controllers', 'Cobrir cenarios de erro e sucesso.', 'Novo', 9),
+('Revisar permissões de segurança', 'Verificar regras de acesso por usuario.', 'Em Andamento', 9);

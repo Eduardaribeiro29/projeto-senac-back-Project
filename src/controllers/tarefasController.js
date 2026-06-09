@@ -7,11 +7,25 @@
 
 import { getDatabase } from '../data/db.js';
 
-// helper: SQLite guarda boolean como inteiro (0/1).
-// Convertemos para true/false antes de devolver no JSON.
-function normalizarTarefa(t) {
-  if (!t) return t;
-  return { ...t, concluida: t.concluida === 1 };
+const STATUS_VALIDOS = new Set(['Novo', 'Em Andamento', 'Concluida']);
+
+function normalizarTextoBase(valor) {
+  return String(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizarStatus(status, fallback = 'Novo') {
+  if (!status || typeof status !== 'string') return fallback;
+  const valor = normalizarTextoBase(status);
+
+  if (valor === 'novo') return 'Novo';
+  if (valor === 'em andamento' || valor === 'andamento') return 'Em Andamento';
+  if (valor === 'concluida' || valor === 'concluido') return 'Concluida';
+
+  return fallback;
 }
 
 // GET /tarefas — só as do usuário logado
@@ -19,10 +33,10 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const tarefas = await db.all(
-      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [req.usuarioId]
     );
-    res.json(tarefas.map(normalizarTarefa));
+    res.json(tarefas);
   } catch (erro) {
     console.error('[tarefas.listar]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefas.' });
@@ -35,14 +49,14 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const tarefa = await db.get(
-      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
     if (!tarefa) {
       return res.status(404).json({ mensagem: 'Tarefa não encontrada.' });
     }
-    res.json(normalizarTarefa(tarefa));
+    res.json(tarefa);
   } catch (erro) {
     console.error('[tarefas.buscarPorId]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefa.' });
@@ -65,10 +79,10 @@ export async function listarPorUsuario(req, res) {
   try {
     const db = await getDatabase();
     const tarefas = await db.all(
-      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
       [usuarioIdSolicitado]
     );
-    res.json(tarefas.map(normalizarTarefa));
+    res.json(tarefas);
   } catch (erro) {
     console.error('[tarefas.listarPorUsuario]', erro);
     res.status(500).json({ mensagem: 'Erro ao buscar tarefas do usuário.' });
@@ -77,24 +91,26 @@ export async function listarPorUsuario(req, res) {
 
 // POST /tarefas — body { titulo }. usuarioId vem do token.
 export async function criar(req, res) {
-  const { titulo, descricao } = req.body;
+  const { titulo, descricao, status } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
   }
 
+  const statusFinal = normalizarStatus(status, 'Novo');
+
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO tarefas (titulo, descricao, usuarioId, concluida) VALUES (?, ?, ?, 0)',
-      [titulo.trim(), descricao?.trim() || null, req.usuarioId]
+      'INSERT INTO tarefas (titulo, descricao, status, usuarioId) VALUES (?, ?, ?, ?)',
+      [titulo.trim(), descricao?.trim() || null, statusFinal, req.usuarioId]
     );
 
     res.status(201).json({
       id: resultado.lastID,
       titulo: titulo.trim(),
       descricao: descricao?.trim() || null,
-      concluida: false,
+      status: statusFinal,
       usuarioId: req.usuarioId
     });
   } catch (erro) {
@@ -106,12 +122,12 @@ export async function criar(req, res) {
 // PUT /tarefas/:id — atualização parcial. Só permite mexer na própria tarefa.
 export async function atualizar(req, res) {
   const { id } = req.params;
-  const { titulo, descricao, concluida } = req.body;
+  const { titulo, descricao, status, concluida } = req.body;
 
   try {
     const db = await getDatabase();
     const atual = await db.get(
-      'SELECT id, titulo, descricao, concluida, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
@@ -122,22 +138,24 @@ export async function atualizar(req, res) {
     // operador ?? mantém o valor atual quando o campo não vem no body
     const novoTitulo = titulo ?? atual.titulo;
     const novaDescricao = descricao ?? atual.descricao;
-    // concluida: aceita boolean e converte para 0/1
-    let novaConcluida = atual.concluida;
+    let novoStatus = atual.status;
     if (typeof concluida === 'boolean') {
-      novaConcluida = concluida ? 1 : 0;
+      novoStatus = concluida ? 'Concluida' : 'Novo';
+    }
+    if (typeof status === 'string') {
+      novoStatus = normalizarStatus(status, atual.status);
     }
 
     await db.run(
-      'UPDATE tarefas SET titulo = ?, descricao = ?, concluida = ? WHERE id = ?',
-      [novoTitulo, novaDescricao, novaConcluida, id]
+      'UPDATE tarefas SET titulo = ?, descricao = ?, status = ? WHERE id = ?',
+      [novoTitulo, novaDescricao, novoStatus, id]
     );
 
     res.json({
       id: Number(id),
       titulo: novoTitulo,
       descricao: novaDescricao,
-      concluida: novaConcluida === 1,
+      status: novoStatus,
       usuarioId: req.usuarioId
     });
   } catch (erro) {

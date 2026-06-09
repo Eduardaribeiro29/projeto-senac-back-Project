@@ -78,7 +78,7 @@ export async function getDatabase() {
         id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
         titulo     TEXT NOT NULL,
         descricao  TEXT,
-        concluida  INTEGER NOT NULL DEFAULT 0,
+        status     TEXT NOT NULL DEFAULT 'Novo',
         usuarioId  INTEGER NOT NULL,
         FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
       );
@@ -87,6 +87,17 @@ export async function getDatabase() {
     // Migração para bancos já existentes
     await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto TEXT;');
     await pool.query('ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS descricao TEXT;');
+    await pool.query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Novo';");
+
+    // Migração de dados antigos: converte concluida (0/1) para status textual.
+    await pool.query(`
+      UPDATE tarefas
+      SET status = CASE
+        WHEN concluida = 1 THEN 'Concluida'
+        ELSE 'Novo'
+      END
+      WHERE status IS NULL OR status = '';
+    `);
 
     dbConnection = createAdapter(pool);
   }

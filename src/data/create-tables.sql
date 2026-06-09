@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS tarefas (
         id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
         titulo     TEXT NOT NULL,
         descricao  TEXT,
-        concluida  INTEGER NOT NULL DEFAULT 0,
+        status     TEXT NOT NULL DEFAULT 'Novo',
         usuarioId  INTEGER NOT NULL,
         FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
 );
