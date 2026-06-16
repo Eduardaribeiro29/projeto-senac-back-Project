@@ -5,31 +5,21 @@
 -- 3) suba o projeto para o backend executar o CREATE TABLE IF NOT EXISTS.
 
 CREATE TABLE IF NOT EXISTS usuarios (
-        id        INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
-        nome      TEXT NOT NULL,
-        email     TEXT NOT NULL UNIQUE,
-        telefone  TEXT,
-        senha     TEXT NOT NULL,
-        foto      TEXT,
-        profissao TEXT NOT NULL,
-      );
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    nome TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    telefone TEXT,
+    senha TEXT NOT NULL,
+    foto TEXT,
+    profissao TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS produtos (
-        id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
-        titulo     TEXT NOT NULL,
-        descricao  TEXT,
-        data_validade DATE NOT NULL,
-        data_fabricacao DATE NOT NULL
-        quantidade INTEGER,
-        foto      TEXT,
-      );
-
-
-CREATE TABLE IF NOT EXISTS produtos (
-        id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
-        titulo     TEXT NOT NULL,
-        descricao  TEXT,
-        data_validade DATE NOT NULL,
-        usuarioId  INTEGER NOT NULL,
-        FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
+    id INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    titulo TEXT NOT NULL,
+    descricao TEXT,
+    data_validade DATE NOT NULL,
+    data_fabricacao DATE NOT NULL,
+    quantidade INTEGER,
+    foto TEXT
 );
