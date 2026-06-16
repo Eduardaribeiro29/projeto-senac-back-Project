@@ -1,6 +1,6 @@
 INSERT INTO usuarios (nome, email, telefone, senha, foto) VALUES
-('Ana Costa', 'ana.costa@gmail.com', '27999881122', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', 'https://SEU-PROJETO.supabase.co/storage/v1/object/public/arquivos/perfil/1/ana-costa.jpg'),
-('João Silva', 'joao.silva@outlook.com', '11988882233', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', 'https://SEU-PROJETO.supabase.co/storage/v1/object/public/arquivos/perfil/2/joao-silva.jpg'),
+('Ana Costa', 'ana.costa@gmail.com', '27999881122', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL),
+('João Silva', 'joao.silva@outlook.com', '11988882233', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL),
 ('Maria Silva', 'maria.silva@empresa.com', '21977773344', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL),
 ('Pedro Santos', 'pedro.santos@gmail.com', '27966664455', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL),
 ('Carlos Souza', 'carlos.souza@yahoo.com', '31955555566', '$2b$10$iE7LWj//5zWPn1Hl.vfHZuRkRmSr3P5a/no2a8lK7ELx1Y/ZPut12', NULL),

@@ -62,35 +62,6 @@ export async function getDatabase() {
     // valida conexão e cria schema inicial (idempotente)
     await pool.query('SELECT 1');
 
-    await pool.query(`
-     CREATE TABLE IF NOT EXISTS usuarios (
-        id        INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
-        nome      TEXT NOT NULL,
-        email     TEXT NOT NULL UNIQUE,
-        telefone  TEXT,
-        senha     TEXT NOT NULL,
-        foto      TEXT
-      );
-    `);
-
-    await pool.query(`
-     CREATE TABLE IF NOT EXISTS tarefas (
-        id         INTEGER PRIMARY KEY GENERATED ALWAYS as IDENTITY,
-        titulo     TEXT NOT NULL,
-        descricao  TEXT,
-        status     TEXT NOT NULL DEFAULT 'Novo',
-        usuarioId  INTEGER NOT NULL,
-        FOREIGN KEY (usuarioId) REFERENCES usuarios (id) ON DELETE CASCADE
-      );
-    `);
-
-    // Migração para bancos já existentes
-    await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS foto TEXT;');
-    await pool.query('ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS descricao TEXT;');
-    await pool.query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Novo';");
-
-    
-
     dbConnection = createAdapter(pool);
   }
 
