@@ -6,9 +6,7 @@
 import 'dotenv/config';
 
 import express from 'express';
-import cors from 'cors';
 import helmet from 'helmet';
-import path from 'node:path';
 
 import usuariosRoutes from './src/routes/usuariosRoutes.js';
 import tarefasRoutes from './src/routes/tarefasRoutes.js';
@@ -24,21 +22,8 @@ const PORT = process.env.PORT || 4000;
 // Strict-Transport-Security, X-Content-Type-Options etc.) — UC3 Bloco C.
 app.use(helmet());
 
-// CORS: libera chamadas vindas de outros domínios (ex.: front no Live Server
-// em http://127.0.0.1:5500). Em produção, restrinja a origin de verdade.
-const corsOptions = {
-  origin: ['http://127.0.0.1:5500','https://tarefas-site-lemon.vercel.app','https://tarefas-carlos-site.vercel.app','https://tarefas-juliana-site.vercel.app','https://tarefas-rafael-front.vercel.app','https://projeto-senac-frontend.vercel.app', 'http://localhost:5500','http://localhost:8080', 'http://127.0.0.1:8080', 'https://projeto-senac-front.vercel.app'],
-  credentials: true
-};
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
 // parser nativo do Express para JSON no corpo das requisições
 app.use(express.json());
-
-// disponibiliza as imagens de perfil salvas localmente
-app.use('/uploads', express.static(path.resolve('uploads')));
 
 // ────────────────────────────────────────────────────────────────────────────
 // Rotas

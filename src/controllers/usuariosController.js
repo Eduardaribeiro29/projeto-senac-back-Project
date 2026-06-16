@@ -112,12 +112,12 @@ export async function atualizar(req, res) {
   const { nome, email, telefone, senha } = req.body;
 
   try {
-    let pastaUpload = 'perfil';
+    let novaFotoUpload = null;
 
     const contentType = req.headers['content-type'] || '';
     if (contentType.includes('multipart/form-data')) {
       const upload = await processarUploadImagem(req, res, { pasta: 'perfil', campo: 'foto' });
-      pastaUpload = upload.pasta;
+      novaFotoUpload = upload.publicUrl;
     }
 
     const db = await getDatabase();
@@ -130,9 +130,7 @@ export async function atualizar(req, res) {
     const novoNome = nome ?? atual.nome;
     const novoEmail = email ?? atual.email;
     const novoTelefone = telefone ?? atual.telefone;
-    const novaFoto = req.file
-      ? `${req.protocol}://${req.get('host')}/uploads/${pastaUpload}/${idAlvo}/${req.file.filename}`
-      : (req.body.foto ?? atual.foto);
+    const novaFoto = novaFotoUpload ?? req.body.foto ?? atual.foto;
     let novaSenha = atual.senha;
 
     if (senha) {

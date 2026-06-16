@@ -2,286 +2,150 @@
 
 ## 1. Visão geral
 
-Este projeto é uma API REST didática construída com **Node.js + Express + SQLite**, focada em:
+Este projeto é uma API REST didática construída com Node.js, Express, PostgreSQL no Supabase e upload de imagens no Supabase Storage.
 
-- CRUD de usuários
-- CRUD de tarefas
-- autenticação com JWT
-- boas práticas básicas de segurança web
+O foco é ensinar uma arquitetura simples que o aluno consegue manter manualmente:
 
-A aplicação segue uma arquitetura simples em camadas:
+- rotas em `src/routes`
+- controllers em `src/controllers`
+- autenticação e upload em `src/middlewares`
+- banco em `src/data/db.js`
+- SQL de referência em `src/data/create-tables.sql`
 
-- **Entrada da aplicação**: `index.js`
-- **Rotas HTTP**: `src/routes`
-- **Regras de negócio**: `src/controllers`
-- **Autenticação (middleware)**: `src/middlewares`
-- **Persistência e schema**: `src/data/db.js`
+O fluxo principal é:
 
----
+`frontend -> fetch -> index.js -> routes -> middlewares -> controllers -> db.js -> Supabase`
 
-## 2. Linguagem e tecnologias
+## 2. Tecnologias usadas
 
-### Linguagem
+- `express`: servidor HTTP
+- `pg`: conexão com PostgreSQL
+- `@aws-sdk/client-s3`: envio de imagens para o Storage S3 compatível do Supabase
+- `multer`: leitura de `multipart/form-data`
+- `bcrypt`: hash de senha
+- `jsonwebtoken`: JWT
+- `helmet`: headers de segurança
+- `dotenv`: variáveis de ambiente
 
-- **JavaScript (ES Modules)**
-- O projeto usa `"type": "module"` no `package.json`, então os imports são feitos com `import`/`export`.
+## 3. Como a aplicação executa
 
-### Bibliotecas principais
+Quando o servidor sobe:
 
-- `express`: servidor HTTP e roteamento
-- `sqlite` + `sqlite3`: banco de dados em arquivo com API assíncrona
-- `bcrypt`: hash seguro de senha
-- `jsonwebtoken`: criação e validação de token JWT
-- `helmet`: headers de segurança HTTP
-- `cors`: controle de origem para chamadas do frontend
-- `dotenv`: carregamento de variáveis de ambiente
-- `nodemon` (dev): reload automático
+1. `index.js` carrega o `.env`
+2. cria o app Express
+3. registra `helmet()`
+4. registra `express.json()`
+5. monta os routers de usuários e tarefas
+6. começa a escutar na porta configurada
 
----
+## 4. Como o banco funciona
 
-## 3. Como a execução acontece
+O arquivo `src/data/db.js`:
 
-## 3.1 Bootstrap da aplicação
+- abre a conexão com o PostgreSQL do Supabase
+- mantém a conexão reutilizável
+- cria as tabelas básicas com `CREATE TABLE IF NOT EXISTS`
+- entrega para os controllers uma interface simples com:
+  `db.all(...)`
+  `db.get(...)`
+  `db.run(...)`
 
-Quando você executa `npm start` ou `npm run dev`, o Node inicia `index.js`:
+Mesmo com PostgreSQL, os controllers continuam usando placeholders `?`, porque `db.js` converte isso internamente para o formato do PostgreSQL.
 
-1. Carrega variáveis de ambiente com `import 'dotenv/config'`
-2. Cria o app Express
-3. Registra middlewares globais:
-   - `helmet()`
-   - `cors(...)`
-   - `express.json()`
-4. Monta rotas:
-   - `/usuarios`
-   - `/tarefas`
-5. Sobe o servidor na porta `process.env.PORT || 3000`
+## 5. Como a autenticação funciona
 
-## 3.2 Banco de dados
+No login:
 
-A conexão com SQLite é aberta sob demanda em `getDatabase()` (`src/data/db.js`) e mantida como singleton.
+1. o controller procura o usuário pelo email
+2. compara a senha com `bcrypt.compare`
+3. gera o token com `jwt.sign`
+4. devolve o token ao frontend
 
-Na primeira chamada:
+Nas rotas protegidas:
 
-- abre/gera `src/data/database.db`
-- ativa `PRAGMA foreign_keys = ON`
-- cria tabelas se não existirem:
-  - `usuarios`
-  - `tarefas` (com FK para `usuarios` e `ON DELETE CASCADE`)
+1. o frontend envia `Authorization: Bearer <token>`
+2. o middleware `autenticacao.js` valida o token
+3. o middleware coloca `req.usuarioId`
+4. o controller usa esse id para filtrar ou autorizar a operação
 
----
+## 6. Como o upload de imagem funciona
 
-## 4. Fluxo de uma requisição
+O projeto não salva mais imagens localmente.
 
-1. Requisição chega no Express
-2. Passa pelos middlewares globais (`helmet`, `cors`, parser JSON)
-3. Entra na rota (`routes/...`)
-4. Se rota protegida: passa no middleware `autenticarJWT`
-5. Controller executa regra de negócio + SQL
-6. Controller retorna JSON com status adequado
+Agora o fluxo é:
 
----
+1. o frontend envia `multipart/form-data`
+2. o middleware `uploadImagem.js` lê o arquivo com `multer`
+3. o backend envia o arquivo para o Supabase Storage
+4. o bucket usado é `arquivos`
+5. a URL pública retornada é salva na coluna `foto`
+6. o frontend usa essa URL para exibir a imagem
 
-## 5. Autenticação e autorização
+Para isso funcionar, o `.env` precisa ter:
 
-## 5.1 Login
+- `SUPABASE_STORAGE_REGION`
+- `SUPABASE_STORAGE_S3_ENDPOINT`
+- `SUPABASE_STORAGE_ACCESS_KEY_ID`
+- `SUPABASE_STORAGE_SECRET_ACCESS_KEY`
+- `SUPABASE_STORAGE_PUBLIC_URL`
+- `SUPABASE_STORAGE_BUCKET=arquivos`
 
-No `POST /usuarios/login`:
+## 7. Como os alunos devem criar uma nova tabela manualmente
 
-1. Busca usuário por e-mail
-2. Compara senha digitada com hash salvo (`bcrypt.compare`)
-3. Gera token JWT com payload `{ usuarioId, nome }`
-4. Retorna `{ token, usuario }`
+O processo manual recomendado é:
 
-## 5.2 Validação do token
+1. desenhar os campos da entidade
+2. escrever o SQL em `src/data/create-tables.sql`
+3. copiar esse `CREATE TABLE` para `src/data/db.js`
+4. subir o projeto para o backend garantir a criação
+5. conferir no painel do Supabase se a tabela apareceu
 
-O middleware `src/middlewares/autenticacao.js`:
+Exemplo de raciocínio:
 
-- lê header `Authorization: Bearer <token>`
-- valida token com `jwt.verify(token, process.env.JWT_SECRET)`
-- coloca `req.usuarioId` e `req.usuarioNome`
-- se inválido/expirado: `401`
+- entidade: `produtos`
+- campos: `id`, `nome`, `descricao`, `preco`, `usuarioId`
+- relacionamento: um produto pertence a um usuário
 
-## 5.3 Regras de autorização
+## 8. Como os alunos devem criar um novo CRUD manualmente
 
-- Usuário só pode **editar/remover o próprio usuário** (`usuariosController`)
-- Usuário só pode **ver/editar/remover as próprias tarefas** (`tarefasController`)
-- Em tarefas, o `usuarioId` usado para filtros vem do token, não do body
+Depois da tabela:
 
----
+1. criar `src/controllers/produtosController.js`
+2. criar `src/routes/produtosRoutes.js`
+3. implementar `listar`, `buscarPorId`, `criar`, `atualizar`, `remover`
+4. registrar `app.use('/produtos', produtosRoutes)` em `index.js`
+5. testar no navegador, no Insomnia ou no Postman
 
-## 6. Segurança aplicada no projeto
+Esse é o padrão que deve ser repetido para qualquer recurso novo.
 
-## 6.1 Itens implementados
+## 9. Como os alunos devem criar o frontend manualmente
 
-- Senha armazenada com hash (`bcrypt`), nunca em texto puro nas respostas
-- Uso de prepared statements (`?`) nas queries SQL
-- JWT com validade (`JWT_EXPIRES_IN`) e assinatura (`JWT_SECRET`)
-- `helmet` para headers de segurança
-- CORS com lista explícita de origens e `credentials: true`
-- Mensagem genérica no login inválido (`Credenciais inválidas`)
+Para cada recurso novo:
 
-## 6.2 CORS atual
+1. criar um formulário HTML
+2. criar um arquivo JS para ler os campos do formulário
+3. usar `fetch` para chamar a API
+4. mostrar a resposta na tela
+5. se houver token, guardar e reutilizar no `Authorization`
+6. se houver imagem, usar `FormData`
 
-No estado atual do código, as origens permitidas são:
+## 10. Boas práticas deste projeto base
 
-- `http://127.0.0.1:5500`
-- `http://localhost:5500`
-- `http://localhost:8080`
-- `http://127.0.0.1:8080`
+- evitar complexidade desnecessária
+- não criar camada de `service` ou `repository` só por padrão
+- manter o controller como ponto central da regra de negócio
+- reaproveitar os middlewares existentes quando fizer sentido
+- escrever SQL simples e fácil de ler
+- manter nomes de arquivos e funções claros
 
-Com `credentials: true`, o navegador pode enviar cookies/credenciais em requisições cross-origin permitidas.
+## 11. Erros mais comuns
 
-## 6.3 Pontos de atenção
-
-- Não há rate limiting (proteção contra brute force e abuso)
-- Não há refresh token/revogação de JWT
-- `GET /usuarios` está público na implementação atual (ver seção de endpoints)
-- Há arquivo `scripts.sql` com senhas em texto puro para seed didático; isso não deve ser usado em produção
-
----
-
-## 7. Endpoints e comportamento real
-
-## 7.1 Usuários
-
-- `POST /usuarios` (público): cria usuário
-- `POST /usuarios/login` (público): autentica e retorna JWT
-- `GET /usuarios/perfil` (protegido): retorna dados do usuário do token
-- `GET /usuarios` (**público no código atual**): lista usuários sem senha
-- `GET /usuarios/:id` (protegido)
-- `PUT /usuarios/:id` (protegido, só o próprio)
-- `DELETE /usuarios/:id` (protegido, só o próprio)
-
-## 7.2 Tarefas (todas protegidas)
-
-- `GET /tarefas`
-- `GET /tarefas/usuario/:usuarioId` (só do próprio usuário)
-- `GET /tarefas/:id` (apenas se a tarefa for do usuário logado)
-- `POST /tarefas`
-- `PUT /tarefas/:id`
-- `DELETE /tarefas/:id`
-
----
-
-## 8. Modelo de dados
-
-- `usuarios`
-  - `id` (PK)
-  - `nome`
-  - `email` (UNIQUE)
-  - `telefone`
-  - `senha` (hash)
-- `tarefas`
-  - `id` (PK)
-  - `titulo`
-  - `concluida` (0/1 no banco; boolean no JSON)
-  - `usuarioId` (FK -> `usuarios.id`)
-
-Quando um usuário é removido, suas tarefas são removidas automaticamente (`ON DELETE CASCADE`).
-
----
-
-## 9. Códigos de status mais usados
-
-- `200`: sucesso geral (GET/PUT/DELETE)
-- `201`: criado com sucesso (POST)
-- `400`: dados inválidos ou ausentes
-- `401`: não autenticado / token inválido
-- `403`: sem permissão para recurso de outro usuário
-- `404`: recurso não encontrado
-- `409`: conflito (ex.: e-mail duplicado)
-- `500`: erro interno inesperado
-
----
-
-## 10. Diagramas Mermaid
-
-### 10.1 Arquitetura e fluxo macro
-
-```mermaid
-flowchart LR
-    A[Cliente Web ou API Client] --> B[index.js - Express App]
-    B --> C[Middlewares Globais\nhelmet + cors + express.json]
-    C --> D{Prefixo da rota}
-
-    D -->|/usuarios| E[usuariosRoutes]
-    D -->|/tarefas| F[tarefasRoutes]
-
-    E --> G[usuariosController]
-    F --> H[autenticarJWT]
-    H --> I[tarefasController]
-
-    G --> J[(SQLite database.db)]
-    I --> J
-
-    J --> G
-    J --> I
-
-    G --> K[Resposta JSON + Status HTTP]
-    I --> K
-```
-
-### 10.2 Sequência de autenticação (login + rota protegida)
-
-```mermaid
-sequenceDiagram
-    participant C as Cliente
-    participant U as /usuarios/login
-    participant DB as SQLite
-    participant M as Middleware JWT
-    participant T as /tarefas
-
-    C->>U: POST /usuarios/login (email, senha)
-    U->>DB: SELECT usuario por email
-    DB-->>U: usuário + hash
-    U->>U: bcrypt.compare(senha, hash)
-    U->>U: jwt.sign(payload, JWT_SECRET)
-    U-->>C: 200 { token, usuario }
-
-    C->>T: GET /tarefas + Authorization: Bearer token
-    T->>M: valida header/token
-    M->>M: jwt.verify(token, JWT_SECRET)
-    M-->>T: req.usuarioId autorizado
-    T->>DB: SELECT tarefas WHERE usuarioId = req.usuarioId
-    DB-->>T: lista tarefas
-    T-->>C: 200 JSON
-```
-
-### 10.3 Modelo entidade-relacionamento
-
-```mermaid
-erDiagram
-    USUARIOS ||--o{ TAREFAS : possui
-
-    USUARIOS {
-    int id
-    string nome
-    string email
-    string telefone
-    string senhaHash
-    }
-
-    TAREFAS {
-    int id
-    string titulo
-    int concluida
-    int usuarioId
-    }
-```
-
----
-
-## 11. Melhorias recomendadas para evolução
-
-1. Proteger `GET /usuarios` com `autenticarJWT` para manter consistência com as demais rotas de usuário.
-2. Adicionar validação robusta com `zod` ou `joi`.
-3. Implementar rate limiting (`express-rate-limit`) especialmente no login.
-4. Padronizar tratamento de erros com middleware central e códigos de erro internos.
-5. Criar testes automatizados (integração para rotas e unidade para controllers).
-6. Adicionar logs estruturados e correlação de requisições.
-
----
+- `401 Token não enviado`: faltou o header `Authorization`
+- `401 Token inválido ou expirado`: token vencido ou segredo diferente
+- erro no upload: bucket `arquivos` não existe ou variáveis do Supabase não foram configuradas
+- imagem não aparece: URL pública não foi salva corretamente
+- tabela nova não aparece: o `CREATE TABLE` não foi colocado em `db.js`
 
 ## 12. Resumo final
 
-O projeto foi construído como uma API REST educacional, com separação de responsabilidades clara, autenticação JWT, persistência em SQLite e medidas essenciais de segurança. O fluxo principal é: rota -> middleware (quando necessário) -> controller -> banco -> resposta JSON. A base está boa para ensino e para pequenos cenários, com espaço para evoluções de segurança e observabilidade para produção.
+Este projeto foi preparado para servir de base simples para o projeto final. O aluno consegue entender manualmente onde criar tabela, rota, controller, integração com frontend e upload de imagem sem depender de arquitetura avançada nem de automações extras.

@@ -1,124 +1,107 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import multer from 'multer';
 
-let uploadRootDir = null;
+let storageClient = null;
+const MAX_SIZE_MB = 5;
 
-function resolverPastaUploads() {
-  if (uploadRootDir) {
-    return uploadRootDir;
+function getStorageClient() {
+  if (storageClient) {
+    return storageClient;
   }
 
-  const candidatos = [
-    process.env.UPLOAD_DIR,
-    path.resolve('uploads'),
-    path.join(os.tmpdir(), 'uploads')
-  ].filter(Boolean);
+  const region = process.env.SUPABASE_STORAGE_REGION;
+  const endpoint = process.env.SUPABASE_STORAGE_S3_ENDPOINT;
+  const accessKeyId = process.env.SUPABASE_STORAGE_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.SUPABASE_STORAGE_SECRET_ACCESS_KEY;
 
-  for (const candidato of candidatos) {
-    try {
-      fs.mkdirSync(candidato, { recursive: true });
-      uploadRootDir = candidato;
-      return uploadRootDir;
-    } catch {
-      // Tenta o proximo caminho disponivel.
-    }
+  if (!region || !endpoint || !accessKeyId || !secretAccessKey) {
+    throw new Error('Configure SUPABASE_STORAGE_REGION, SUPABASE_STORAGE_S3_ENDPOINT, SUPABASE_STORAGE_ACCESS_KEY_ID e SUPABASE_STORAGE_SECRET_ACCESS_KEY no .env.');
   }
 
-  throw new Error('Nao foi possivel inicializar a pasta de uploads. Defina UPLOAD_DIR no ambiente.');
-}
-
-function pad2(value) {
-  return String(value).padStart(2, '0');
-}
-
-function gerarTimestampArquivo(date = new Date()) {
-  const dia = pad2(date.getDate());
-  const mes = pad2(date.getMonth() + 1);
-  const ano = date.getFullYear();
-  const hora = pad2(date.getHours());
-  const minuto = pad2(date.getMinutes());
-  const segundo = pad2(date.getSeconds());
-  return `${dia}${mes}${ano}${hora}${minuto}${segundo}`;
-}
-
-function extensionFromMime(mimeType) {
-  const map = {
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/webp': '.webp',
-    'image/gif': '.gif',
-    'image/bmp': '.bmp',
-    'image/svg+xml': '.svg'
-  };
-  return map[mimeType] || '.jpg';
-}
-
-function sanitizarPasta(valor, padrao = 'perfil') {
-  const limpa = String(valor || padrao).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  return limpa || padrao;
-}
-
-function criarUploaderImagem(pasta = 'perfil') {
-  const pastaDestino = sanitizarPasta(pasta);
-  const rootDir = resolverPastaUploads();
-
-  const storage = multer.diskStorage({
-    destination: (req, _file, cb) => {
-      const userId = String(req.usuarioId || req.params.id || '').trim();
-      if (!userId) {
-        return cb(new Error('Não foi possível identificar o usuário para o upload.'));
-      }
-
-      const userDir = path.join(rootDir, pastaDestino, userId);
-      fs.mkdirSync(userDir, { recursive: true });
-      cb(null, userDir);
-    },
-    filename: (_req, file, cb) => {
-      const originalExt = path.extname(file.originalname || '').toLowerCase();
-      const safeExt = originalExt || extensionFromMime(file.mimetype);
-      const timestamp = gerarTimestampArquivo();
-      cb(null, `${timestamp}${safeExt}`);
+  storageClient = new S3Client({
+    forcePathStyle: true,
+    region,
+    endpoint,
+    credentials: {
+      accessKeyId,
+      secretAccessKey
     }
   });
 
-  return multer({
-    storage,
-    fileFilter,
-    limits: {
-      fileSize: 5 * 1024 * 1024
-    }
-  });
+  return storageClient;
 }
 
-function fileFilter(_req, file, cb) {
-  if (file.mimetype?.startsWith('image/')) {
-    return cb(null, true);
-  }
-  cb(new Error('Apenas arquivos de imagem são permitidos.'));
+function getPublicBaseUrl() {
+
+  const endpoint = process.env.SUPABASE_STORAGE_S3_ENDPOINT || '';
+  return endpoint
+    .replace('.storage.supabase.co/storage/v1/s3', '.supabase.co/storage/v1/object/public')
+    .replace(/\/$/, '');
 }
 
 export function processarUploadImagem(req, res, { pasta = 'perfil', campo = 'foto' } = {}) {
-  const pastaDestino = sanitizarPasta(pasta);
-  const uploader = criarUploaderImagem(pastaDestino);
+  const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'arquivos';
+  const pastaDestino = String(pasta || 'perfil').trim();
+
+  const uploader = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_SIZE_MB * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype?.startsWith('image/')) return cb(null, true);
+      return cb(new Error('Apenas arquivos de imagem são permitidos.'));
+    }
+  });
 
   return new Promise((resolve, reject) => {
-    uploader.single(campo)(req, res, (erro) => {
-      if (!erro) {
+    uploader.single(campo)(req, res, async (erro) => {
+      if (erro?.code === 'LIMIT_FILE_SIZE') {
+        return reject(new Error(`A imagem deve ter no máximo ${MAX_SIZE_MB}MB.`));
+      }
+      if (erro) return reject(erro);
+
+      if (!req.file) {
         return resolve({
-          arquivo: req.file ?? null,
-          pasta: pastaDestino
+          arquivo: null,
+          pasta: pastaDestino,
+          publicUrl: null,
+          caminho: null,
+          bucket
         });
       }
 
-      if (erro.code === 'LIMIT_FILE_SIZE') {
-        return reject(new Error('A imagem deve ter no máximo 5MB.'));
+      const usuarioId = String(req.usuarioId || req.params.id || '').trim();
+      if (!usuarioId) {
+        return reject(new Error('Não foi possível identificar o usuário para o upload.'));
       }
 
-      return reject(erro);
+      try {
+        const client = getStorageClient();
+        const extensao = req.file.originalname?.includes('.')
+          ? `.${req.file.originalname.split('.').pop().toLowerCase()}`
+          : '.jpg';
+        const fileName = `${Date.now()}${extensao}`;
+        const caminho = `${pastaDestino}/${usuarioId}/${fileName}`;
+
+        await client.send(new PutObjectCommand({
+          Bucket: bucket,
+          Key: caminho,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype
+        }));
+
+        const publicUrl = `${getPublicBaseUrl()}/${bucket}/${caminho}`;
+
+        return resolve({
+          arquivo: req.file,
+          pasta: pastaDestino,
+          publicUrl,
+          caminho,
+          bucket,
+          fileName
+        });
+      } catch (storageError) {
+        return reject(storageError);
+      }
     });
   });
 }
-
-export default processarUploadImagem;
