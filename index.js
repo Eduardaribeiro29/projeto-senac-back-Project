@@ -5,6 +5,7 @@
 // 1) dotenv precisa ser carregado ANTES de qualquer coisa que use process.env
 import 'dotenv/config';
 
+import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 
@@ -13,6 +14,7 @@ import tarefasRoutes from './src/routes/tarefasRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Middlewares globais
@@ -21,6 +23,10 @@ const PORT = process.env.PORT || 4000;
 // helmet: adiciona cabeçalhos HTTP de segurança (X-Frame-Options,
 // Strict-Transport-Security, X-Content-Type-Options etc.) — UC3 Bloco C.
 app.use(helmet());
+
+// CORS simples para o projeto base.
+// Em produção, defina CORS_ORIGIN com a URL do frontend publicado.
+app.use(cors({ origin: CORS_ORIGIN }));
 
 // parser nativo do Express para JSON no corpo das requisições
 app.use(express.json());
