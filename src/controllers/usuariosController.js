@@ -23,7 +23,7 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const usuarios = await db.all(
-      'SELECT id, nome, email, telefone, foto FROM usuarios ORDER BY id'
+      'SELECT id, nome, email, telefone, foto, profissao FROM usuarios ORDER BY id'
     );
     res.json(usuarios);
   } catch (erro) {
@@ -38,7 +38,7 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, telefone, foto FROM usuarios WHERE id = ?',
+      'SELECT id, nome, email, telefone, profissao, foto FROM usuarios WHERE id = ?',
       [id]
     );
 
@@ -54,9 +54,9 @@ export async function buscarPorId(req, res) {
 
 // POST /usuarios — cadastro público
 export async function criar(req, res) {
-  const { nome, email, telefone, senha } = req.body;
+  const { nome, email, telefone, senha, profissao } = req.body;
 
-  if (!nome || !email || !telefone || !senha) {
+  if (!nome || !email || !telefone || !senha || !profissao) {
     return res.status(400).json({ mensagem: 'Campos obrigatórios ausentes.' });
   }
 
@@ -75,8 +75,8 @@ export async function criar(req, res) {
     const senhaHash = await bcrypt.hash(senha, SALT_ROUNDS);
 
     const resultado = await db.run(
-      'INSERT INTO usuarios (nome, email, telefone, senha) VALUES (?, ?, ?, ?)',
-      [nome, email, telefone, senhaHash]
+      'INSERT INTO usuarios (nome, email, telefone, senha, profissao) VALUES (?, ?, ?, ?, ?)',
+      [nome, email, telefone, senhaHash, profissao]
     );
 
     res.status(201).json({
@@ -84,6 +84,7 @@ export async function criar(req, res) {
       nome,
       email,
       telefone,
+      profissao,
       foto: null
     });
   } catch (erro) {
@@ -109,7 +110,7 @@ export async function atualizar(req, res) {
     });
   }
 
-  const { nome, email, telefone, senha } = req.body;
+  const { nome, email, telefone, senha, profissao } = req.body;
 
   try {
     let novaFotoUpload = null;
@@ -130,6 +131,7 @@ export async function atualizar(req, res) {
     const novoNome = nome ?? atual.nome;
     const novoEmail = email ?? atual.email;
     const novoTelefone = telefone ?? atual.telefone;
+    const novaProfissao = profissao ?? atual.profissao;
     const novaFoto = novaFotoUpload ?? req.body.foto ?? atual.foto;
     let novaSenha = atual.senha;
 
@@ -144,7 +146,7 @@ export async function atualizar(req, res) {
 
     await db.run(
       'UPDATE usuarios SET nome = ?, email = ?, telefone = ?, senha = ?, foto = ? WHERE id = ?',
-      [novoNome, novoEmail, novoTelefone, novaSenha, novaFoto, idAlvo]
+      [novoNome, novoEmail, novoTelefone, novaProfissao, novaSenha, novaFoto, idAlvo]
     );
 
     res.json({
@@ -154,6 +156,7 @@ export async function atualizar(req, res) {
       nome: novoNome,
       email: novoEmail,
       telefone: novoTelefone,
+      profissao: novaProfissao,
       foto: novaFoto
     });
   } catch (erro) {
@@ -244,7 +247,7 @@ export async function login(req, res) {
 
     res.json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, foto: usuario.foto ?? null }
+      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, profissao: usuario.profissao, foto: usuario.foto ?? null }
     });
   } catch (erro) {
     console.error('[usuarios.login]', erro);
@@ -258,7 +261,7 @@ export async function perfil(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, telefone, foto FROM usuarios WHERE id = ?',
+      'SELECT id, nome, email, telefone, profissao, foto FROM usuarios WHERE id = ?',
       [req.usuarioId]
     );
 
@@ -271,4 +274,3 @@ export async function perfil(req, res) {
     res.status(500).json({ mensagem: 'Erro ao buscar perfil.' });
   }
 }
-
