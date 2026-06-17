@@ -149,6 +149,8 @@ export async function atualizar(req, res) {
 
     res.json({
       id: idAlvo,
+      
+      
       nome: novoNome,
       email: novoEmail,
       telefone: novoTelefone,
