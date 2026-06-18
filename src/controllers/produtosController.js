@@ -7,8 +7,6 @@
 
 import { getDatabase } from '../data/db.js';
 
-const STATUS_VALIDOS = new Set(['Novo', 'Em Andamento', 'Concluido']);
-
 function normalizarTextoBase(valor) {
   return String(valor)
     .normalize('NFD')
@@ -17,21 +15,9 @@ function normalizarTextoBase(valor) {
     .toLowerCase();
 }
 
-function normalizarStatus(status, fallback = 'Novo') {
-  if (!status || typeof status !== 'string') return fallback;
-  const valor = normalizarTextoBase(status);
-
-  if (valor === 'novo') return 'Novo';
-  if (valor === 'em andamento' || valor === 'andamento') return 'Em Andamento';
-  if (valor === 'concluida' || valor === 'concluido') return 'Concluido';
-
-  return fallback;
-}
-
-function normalizarTarefaSaida(tarefa) {
+function normalizarProdutoSaida(produto) {
   return {
-    ...tarefa,
-    status: normalizarStatus(tarefa.status, 'Novo')
+    ...produto
   };
 }
 
@@ -39,14 +25,14 @@ function normalizarTarefaSaida(tarefa) {
 export async function listar(req, res) {
   try {
     const db = await getDatabase();
-    const tarefas = await db.all(
-      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+    const produtos = await db.all(
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
       [req.usuarioId]
     );
-    res.json(tarefas.map(normalizarTarefaSaida));
+    res.json(produtos.map(normalizarProdutoSaida));
   } catch (erro) {
-    console.error('[tarefas.listar]', erro);
-    res.status(500).json({ mensagem: 'Erro ao buscar tarefas.' });
+    console.error('[produtos.listar]', erro);
+    res.status(500).json({ mensagem: 'Erro ao buscar produtos.' });
   }
 }
 
@@ -55,18 +41,18 @@ export async function buscarPorId(req, res) {
   const { id } = req.params;
   try {
     const db = await getDatabase();
-    const tarefa = await db.get(
-      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+    const produto = await db.get(
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
-    if (!tarefa) {
-      return res.status(404).json({ mensagem: 'Tarefa não encontrada.' });
+    if (!produto) {
+      return res.status(404).json({ mensagem: 'Produto não encontrado.' });
     }
-    res.json(normalizarTarefaSaida(tarefa));
+    res.json(normalizarProdutoSaida(produto));
   } catch (erro) {
-    console.error('[tarefas.buscarPorId]', erro);
-    res.status(500).json({ mensagem: 'Erro ao buscar tarefa.' });
+    console.error('[produtos.buscarPorId]', erro);
+    res.status(500).json({ mensagem: 'Erro ao buscar produto.' });
   }
 }
 
@@ -79,26 +65,26 @@ export async function listarPorUsuario(req, res) {
 
   if (usuarioIdSolicitado !== req.usuarioId) {
     return res.status(403).json({
-      mensagem: 'Você só pode listar as próprias tarefas.'
+      mensagem: 'Você só pode listar os próprios produtos.'
     });
   }
 
   try {
     const db = await getDatabase();
-    const tarefas = await db.all(
-      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE usuarioId = ? ORDER BY id DESC',
+    const produtos = await db.all(
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
       [usuarioIdSolicitado]
     );
-    res.json(tarefas.map(normalizarTarefaSaida));
+    res.json(produtos.map(normalizarProdutoSaida));
   } catch (erro) {
-    console.error('[tarefas.listarPorUsuario]', erro);
-    res.status(500).json({ mensagem: 'Erro ao buscar tarefas do usuário.' });
+    console.error('[produtos.listarPorUsuario]', erro);
+    res.status(500).json({ mensagem: 'Erro ao buscar produtos do usuário.' });
   }
 }
 
 // POST /tarefas — body { titulo }. usuarioId vem do token.
 export async function criar(req, res) {
-  const { titulo, descricao, status } = req.body;
+  const { titulo, descricao, data_validade, data_fabricacao, quantidade, status } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
@@ -109,65 +95,74 @@ export async function criar(req, res) {
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO tarefas (titulo, descricao, status, usuarioId) VALUES (?, ?, ?, ?)',
-      [titulo.trim(), descricao?.trim() || null, statusFinal, req.usuarioId]
+      'INSERT INTO  (titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [titulo.trim(), descricao?.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null, statusFinal, req.usuarioId]
     );
 
     res.status(201).json({
       id: resultado.lastID,
       titulo: titulo.trim(),
       descricao: descricao?.trim() || null,
+      data_validade: data_validade.trim(),
+      data_fabricacao: data_fabricacao.trim(),
+      quantidade: quantidade.trim(),      
       status: statusFinal,
       usuarioId: req.usuarioId
     });
   } catch (erro) {
-    console.error('[tarefas.criar]', erro);
-    res.status(500).json({ mensagem: 'Erro ao criar tarefa.' });
+    console.error('[produtos.criar]', erro);
+    res.status(500).json({ mensagem: 'Erro ao criar produto.' });
   }
 }
 
 // PUT /tarefas/:id — atualização parcial. Só permite mexer na própria tarefa.
 export async function atualizar(req, res) {
   const { id } = req.params;
-  const { titulo, descricao, status, concluida } = req.body;
+  const { titulo, descricao, data_validade, data_fabricacao, quantidade, status, vencido } = req.body;
 
   try {
     const db = await getDatabase();
     const atual = await db.get(
-      'SELECT id, titulo, descricao, status, usuarioId FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
     if (!atual) {
-      return res.status(404).json({ mensagem: 'Tarefa não encontrada.' });
+      return res.status(404).json({ mensagem: 'Produto não encontrado.' });
     }
 
     // operador ?? mantém o valor atual quando o campo não vem no body
     const novoTitulo = titulo ?? atual.titulo;
     const novaDescricao = descricao ?? atual.descricao;
+    const novaData_validade = data_validade ?? atual.data_validade;
+    const novaData_fabricacao = data_fabricacao ?? atual.data_fabricacao;
+    const novaQuantidade = quantidade ?? atual.quantidade;
     let novoStatus = atual.status;
-    if (typeof concluida === 'boolean') {
-      novoStatus = concluida ? 'Concluido' : 'Novo';
+    if (typeof vencido === 'boolean') {
+      novoStatus = vencido ? 'Vencido' : 'Novo';
     }
     if (typeof status === 'string') {
       novoStatus = normalizarStatus(status, atual.status);
     }
 
     await db.run(
-      'UPDATE tarefas SET titulo = ?, descricao = ?, status = ? WHERE id = ?',
-      [novoTitulo, novaDescricao, novoStatus, id]
+      'UPDATE produtos SET titulo = ?, descricao = ?, data_validade = ?, data_fabricacao = ?, quantidade = ?, status = ? WHERE id = ?',
+      [novoTitulo, novaDescricao, novaData_validade, novaData_fabricacao, novaQuantidade, novoStatus, id]
     );
 
     res.json({
       id: Number(id),
       titulo: novoTitulo,
       descricao: novaDescricao,
+      data_validade: novaData_validade,
+      data_fabricacao: novaData_fabricacao,
+      quantidade: novaQuantidade,
       status: novoStatus,
       usuarioId: req.usuarioId
     });
   } catch (erro) {
-    console.error('[tarefas.atualizar]', erro);
-    res.status(500).json({ mensagem: 'Erro ao atualizar tarefa.' });
+    console.error('[produtos.atualizar]', erro);
+    res.status(500).json({ mensagem: 'Erro ao atualizar produto.' });
   }
 }
 
@@ -177,16 +172,16 @@ export async function remover(req, res) {
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'DELETE FROM tarefas WHERE id = ? AND usuarioId = ?',
+      'DELETE FROM produtos WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
     if (resultado.changes === 0) {
-      return res.status(404).json({ mensagem: 'Tarefa não encontrada.' });
+      return res.status(404).json({ mensagem: 'Produto não encontrado.' });
     }
-    res.json({ mensagem: 'Tarefa removida com sucesso.' });
+    res.json({ mensagem: 'Produto removido com sucesso.' });
   } catch (erro) {
-    console.error('[tarefas.remover]', erro);
-    res.status(500).json({ mensagem: 'Erro ao remover tarefa.' });
+    console.error('[produtos.remover]', erro);
+    res.status(500).json({ mensagem: 'Erro ao remover produto.' });
   }
 }
