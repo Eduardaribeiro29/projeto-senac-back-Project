@@ -5,7 +5,7 @@
 // os controllers saibam quem é o usuário logado.
 
 import { Router } from 'express';
-import * as controller from '../controllers/tarefasController.js';
+import * as controller from '../controllers/produtosController.js';
 import { autenticarJWT } from '../middlewares/autenticacao.js';
 
 const router = Router();
