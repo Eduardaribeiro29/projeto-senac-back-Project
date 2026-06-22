@@ -42,7 +42,7 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const produto = await db.get(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
@@ -72,7 +72,7 @@ export async function listarPorUsuario(req, res) {
   try {
     const db = await getDatabase();
     const produtos = await db.all(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
       [usuarioIdSolicitado]
     );
     res.json(produtos.map(normalizarProdutoSaida));
@@ -84,19 +84,17 @@ export async function listarPorUsuario(req, res) {
 
 // POST /tarefas — body { titulo }. usuarioId vem do token.
 export async function criar(req, res) {
-  const { titulo, descricao, data_validade, data_fabricacao, quantidade, status } = req.body;
+  const { titulo, descricao, data_validade, data_fabricacao, quantidade } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
   }
 
-  const statusFinal = normalizarStatus(status, 'Novo');
-
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO  (titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [titulo.trim(), descricao?.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null, statusFinal, req.usuarioId]
+      'INSERT INTO  (titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [titulo.trim(), descricao?.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null, req.usuarioId]
     );
 
     res.status(201).json({
@@ -105,8 +103,7 @@ export async function criar(req, res) {
       descricao: descricao?.trim() || null,
       data_validade: data_validade.trim(),
       data_fabricacao: data_fabricacao.trim(),
-      quantidade: quantidade.trim(),      
-      status: statusFinal,
+      quantidade: quantidade.trim(),
       usuarioId: req.usuarioId
     });
   } catch (erro) {
@@ -118,12 +115,12 @@ export async function criar(req, res) {
 // PUT /tarefas/:id — atualização parcial. Só permite mexer na própria tarefa.
 export async function atualizar(req, res) {
   const { id } = req.params;
-  const { titulo, descricao, data_validade, data_fabricacao, quantidade, status, vencido } = req.body;
+  const { titulo, descricao, data_validade, data_fabricacao, quantidade, vencido } = req.body;
 
   try {
     const db = await getDatabase();
     const atual = await db.get(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, status, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
+      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
       [id, req.usuarioId]
     );
 
@@ -146,8 +143,8 @@ export async function atualizar(req, res) {
     }
 
     await db.run(
-      'UPDATE produtos SET titulo = ?, descricao = ?, data_validade = ?, data_fabricacao = ?, quantidade = ?, status = ? WHERE id = ?',
-      [novoTitulo, novaDescricao, novaData_validade, novaData_fabricacao, novaQuantidade, novoStatus, id]
+      'UPDATE produtos SET titulo = ?, descricao = ?, data_validade = ?, data_fabricacao = ?, quantidade = ? WHERE id = ?',
+      [novoTitulo, novaDescricao, novaData_validade, novaData_fabricacao, novaQuantidade, id]
     );
 
     res.json({
@@ -157,7 +154,6 @@ export async function atualizar(req, res) {
       data_validade: novaData_validade,
       data_fabricacao: novaData_fabricacao,
       quantidade: novaQuantidade,
-      status: novoStatus,
       usuarioId: req.usuarioId
     });
   } catch (erro) {

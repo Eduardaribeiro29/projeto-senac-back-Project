@@ -7,6 +7,6 @@ const router = Router();
 // aplica autenticação em todas as rotas montadas neste router
 router.use(autenticarJWT);
 
-router.post('/', controller.criar);
+router.post('/usuarios/login', controller.criar);
 
 export default router;
