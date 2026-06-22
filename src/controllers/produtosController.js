@@ -26,8 +26,7 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const produtos = await db.all(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
-      [req.usuarioId]
+      'SELECT id, titulo, data_validade, data_fabricacao, quantidade FROM produtos ORDER BY id DESC',
     );
     res.json(produtos.map(normalizarProdutoSaida));
   } catch (erro) {
@@ -42,8 +41,8 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const produto = await db.get(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
-      [id, req.usuarioId]
+      'SELECT id, titulo, data_validade, data_fabricacao, quantidade FROM produtos WHERE id = ? ',
+      [id]
     );
 
     if (!produto) {
@@ -56,35 +55,11 @@ export async function buscarPorId(req, res) {
   }
 }
 
-// GET /tarefas/usuario/:usuarioId
-// Uso didático — mostra como filtrar por chave estrangeira.
-// Por segurança, só o próprio usuário pode listar as próprias tarefas
-// por esse endpoint.
-export async function listarPorUsuario(req, res) {
-  const usuarioIdSolicitado = Number(req.params.usuarioId);
 
-  if (usuarioIdSolicitado !== req.usuarioId) {
-    return res.status(403).json({
-      mensagem: 'Você só pode listar os próprios produtos.'
-    });
-  }
-
-  try {
-    const db = await getDatabase();
-    const produtos = await db.all(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE usuarioId = ? ORDER BY id DESC',
-      [usuarioIdSolicitado]
-    );
-    res.json(produtos.map(normalizarProdutoSaida));
-  } catch (erro) {
-    console.error('[produtos.listarPorUsuario]', erro);
-    res.status(500).json({ mensagem: 'Erro ao buscar produtos do usuário.' });
-  }
-}
 
 // POST /tarefas — body { titulo }. usuarioId vem do token.
 export async function criar(req, res) {
-  const { titulo, descricao, data_validade, data_fabricacao, quantidade } = req.body;
+  const { titulo, data_validade, data_fabricacao, quantidade } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
@@ -93,18 +68,16 @@ export async function criar(req, res) {
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO  (titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [titulo.trim(), descricao?.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null, req.usuarioId]
+      'INSERT INTO  (titulo, data_validade, data_fabricacao, quantidade) VALUES (?, ?, ?, ?, ?)',
+      [titulo.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null]
     );
 
     res.status(201).json({
       id: resultado.lastID,
       titulo: titulo.trim(),
-      descricao: descricao?.trim() || null,
       data_validade: data_validade.trim(),
       data_fabricacao: data_fabricacao.trim(),
       quantidade: quantidade.trim(),
-      usuarioId: req.usuarioId
     });
   } catch (erro) {
     console.error('[produtos.criar]', erro);
@@ -115,13 +88,13 @@ export async function criar(req, res) {
 // PUT /tarefas/:id — atualização parcial. Só permite mexer na própria tarefa.
 export async function atualizar(req, res) {
   const { id } = req.params;
-  const { titulo, descricao, data_validade, data_fabricacao, quantidade, vencido } = req.body;
+  const { titulo, data_validade, data_fabricacao, quantidade, vencido } = req.body;
 
   try {
     const db = await getDatabase();
     const atual = await db.get(
-      'SELECT id, titulo, descricao, data_validade, data_fabricacao, quantidade, usuarioId FROM produtos WHERE id = ? AND usuarioId = ?',
-      [id, req.usuarioId]
+      'SELECT id, titulo, data_validade, data_fabricacao, quantidade FROM produtos WHERE id = ?',
+      [id]
     );
 
     if (!atual) {
@@ -130,7 +103,6 @@ export async function atualizar(req, res) {
 
     // operador ?? mantém o valor atual quando o campo não vem no body
     const novoTitulo = titulo ?? atual.titulo;
-    const novaDescricao = descricao ?? atual.descricao;
     const novaData_validade = data_validade ?? atual.data_validade;
     const novaData_fabricacao = data_fabricacao ?? atual.data_fabricacao;
     const novaQuantidade = quantidade ?? atual.quantidade;
@@ -143,18 +115,16 @@ export async function atualizar(req, res) {
     }
 
     await db.run(
-      'UPDATE produtos SET titulo = ?, descricao = ?, data_validade = ?, data_fabricacao = ?, quantidade = ? WHERE id = ?',
-      [novoTitulo, novaDescricao, novaData_validade, novaData_fabricacao, novaQuantidade, id]
+      'UPDATE produtos SET titulo = ?, data_validade = ?, data_fabricacao = ?, quantidade = ? WHERE id = ?',
+      [novoTitulo, novaData_validade, novaData_fabricacao, novaQuantidade, id]
     );
 
     res.json({
       id: Number(id),
       titulo: novoTitulo,
-      descricao: novaDescricao,
       data_validade: novaData_validade,
       data_fabricacao: novaData_fabricacao,
       quantidade: novaQuantidade,
-      usuarioId: req.usuarioId
     });
   } catch (erro) {
     console.error('[produtos.atualizar]', erro);
