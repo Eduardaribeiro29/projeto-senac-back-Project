@@ -222,7 +222,7 @@ export async function login(req, res) {
   try {
     const db = await getDatabase();
     const usuario = await db.get(
-      'SELECT id, nome, email, senha, foto FROM usuarios WHERE email = ?',
+      'SELECT id, nome, email, senha, profissao, foto FROM usuarios WHERE email = ?',
       [email]
     );
 
