@@ -14,7 +14,6 @@ const router = Router();
 router.use(autenticarJWT);
 
 router.get('/', controller.listar);                              // GET    /tarefas
-router.get('/usuario/:usuarioId', controller.listarPorUsuario);  // GET    /tarefas/usuario/:usuarioId
 router.get('/:id', controller.buscarPorId);                      // GET    /tarefas/:id
 router.post('/', controller.criar);                              // POST   /tarefas
 router.put('/:id', controller.atualizar);                        // PUT    /tarefas/:id
