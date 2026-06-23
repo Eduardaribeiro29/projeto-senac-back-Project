@@ -6,6 +6,7 @@
 // alterar ou apagar tarefa de outra pessoa.
 
 import { getDatabase } from '../data/db.js';
+import { processarUploadImagem } from '../middlewares/uploadImagem.js';
 
 function normalizarTextoBase(valor) {
   return String(valor)
@@ -26,7 +27,7 @@ export async function listar(req, res) {
   try {
     const db = await getDatabase();
     const produtos = await db.all(
-      'SELECT id, titulo, data_validade, data_fabricacao, quantidade FROM produtos ORDER BY id DESC',
+      'SELECT id, titulo, data_validade, data_fabricacao, quantidade,foto FROM produtos ORDER BY id DESC',
     );
     res.json(produtos.map(normalizarProdutoSaida));
   } catch (erro) {
@@ -41,7 +42,7 @@ export async function buscarPorId(req, res) {
   try {
     const db = await getDatabase();
     const produto = await db.get(
-      'SELECT id, titulo, data_validade, data_fabricacao, quantidade FROM produtos WHERE id = ? ',
+      'SELECT id, titulo, data_validade, data_fabricacao, quantidade,foto FROM produtos WHERE id = ? ',
       [id]
     );
 
@@ -64,12 +65,16 @@ export async function criar(req, res) {
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
     return res.status(400).json({ mensagem: 'Informe um título válido.' });
   }
+  if (contentType.includes('multipart/form-data')) {
+      const upload = await processarUploadImagem(req, res, { pasta: 'produtos', campo: 'foto' });
+      fotoUpload = upload.publicUrl;
+  }
 
   try {
     const db = await getDatabase();
     const resultado = await db.run(
-      'INSERT INTO  (titulo, data_validade, data_fabricacao, quantidade) VALUES (?, ?, ?, ?, ?)',
-      [titulo.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || null]
+      'INSERT INTO  (titulo, data_validade, data_fabricacao, quantidade,foto) VALUES (?, ?, ?, ?, ?,?)',
+      [titulo.trim(), data_validade.trim(), data_fabricacao.trim(), quantidade.trim() || 1,fotoUpload]
     );
 
     res.status(201).json({
@@ -78,6 +83,7 @@ export async function criar(req, res) {
       data_validade: data_validade.trim(),
       data_fabricacao: data_fabricacao.trim(),
       quantidade: quantidade.trim(),
+      foto: fotoUpload
     });
   } catch (erro) {
     console.error('[produtos.criar]', erro);
