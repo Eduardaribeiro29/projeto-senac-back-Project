@@ -26,7 +26,7 @@ app.use(helmet());
 
 // CORS simples para o projeto base.
 // Em produção, defina CORS_ORIGIN com a URL do frontend publicado.
-app.use(cors({ origin: CORS_ORIGIN }));
+app.use(cors({ origin: 'https://prazu.vercel.app' }));
 
 // parser nativo do Express para JSON no corpo das requisições
 app.use(express.json());
