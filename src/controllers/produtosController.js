@@ -63,7 +63,7 @@ export async function criar(req, res) {
   const { titulo, data_validade, data_fabricacao, quantidade } = req.body;
 
   if (!titulo || typeof titulo !== 'string' || !titulo.trim()) {
-    return res.status(400).json({ mensagem: f'Informe um título válido. {titulo}' });
+    return res.status(400).json({ mensagem: titulo });
   }
   if (contentType.includes('multipart/form-data')) {
       const upload = await processarUploadImagem(req, res, { pasta: 'produtos', campo: 'foto' });
